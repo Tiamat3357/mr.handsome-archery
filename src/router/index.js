@@ -5,10 +5,10 @@ import CustomerView from '../views/CustomerView.vue'
 import DashboardView from '../views/DashboardView.vue'
 
 const routes = [
-  { path: '/', redirect: '/pos' },
+  { path: '/', component: CustomerView },
   { path: '/login', component: LoginView },
   { path: '/pos', component: PosView },
-  { path: '/customers', component: CustomerView },
+  { path: '/customers', redirect: '/' }, // หรือลบบรรทัดนี้ออกได้เลย
   { path: '/dashboard', component: DashboardView },
 ]
 
