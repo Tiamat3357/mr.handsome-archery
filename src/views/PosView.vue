@@ -4,126 +4,121 @@ import { supabase } from '../lib/supabase'
 
 const packages = ref([])
 const loading = ref(true)
-const cart = ref([])
+const selectedPackage = ref(null)
 
-// รายการจองประจำวัน
 const todayBookings = ref([])
-const activeBookingId = ref(null)
+const activeBooking = ref(null)
 const showBookingModal = ref(false)
+const selectedRound = ref('13:00 - 14:00')
+const roundSlots = [
+  { time: '11:00 - 12:00', label: 'รอบเช้า' },
+  { time: '13:00 - 14:00', label: 'บ่าย 1' },
+  { time: '14:30 - 15:30', label: 'บ่าย 2' },
+  { time: '16:00 - 17:00', label: 'เย็น 1' },
+  { time: '17:30 - 18:30', label: 'เย็น 2' }
+]
 
-// สมาชิก
 const searchPhone = ref('')
 const currentCustomer = ref(null)
 const searchError = ref('')
+const showRegisterModal = ref(false)
+const newCustomerName = ref('')
+const newCustomerPhone = ref('')
+const registerLoading = ref(false)
+const applyReward = ref(false)
 
-// ฟอร์มการให้บริการ
-const selectedRound = ref('11:00-12:00')
-const roundSlots = [
-  '11:00-12:00',
-  '13:00-14:00',
-  '14:30-15:30',
-  '16:00-17:00',
-  '17:30-18:30'
-]
-const paymentMethod = ref('Cash')
 const additionalTargets = ref(0)
 const lostArrows = ref(0)
-
-// ระบบแต้มสะสมและสิทธิ์รางวัล (Milestone Rewards)
-const applyReward = ref(false)
+const paymentMethod = ref('PromptPay')
+const isSubmitting = ref(false)
+const showArrowFly = ref(false) // trigger animation ตอนบันทึกสำเร็จ
 
 const availableReward = computed(() => {
   if (!currentCustomer.value) return null
   const pts = currentCustomer.value.points || 0
-
-  if (pts >= 10) {
-    return {
-      type: 'FREE',
-      label: 'สิทธิ์ยิงฟรี 1 ครั้ง (ครบ 10 แต้ม)',
-      rate: 1.0
-    }
-  } else if (pts >= 7) {
-    return {
-      type: 'DISCOUNT_50',
-      label: 'สิทธิ์ส่วนลด 50% (ครบ 7 แต้ม)',
-      rate: 0.5
-    }
-  }
+  if (pts >= 10) return { type: 'FREE', label: 'ยิงฟรี 1 รอบ (ครบ 10 แต้ม)', rate: 1.0 }
+  if (pts >= 7) return { type: 'DISCOUNT_50', label: 'ลด 50% (ครบ 7 แต้ม)', rate: 0.5 }
   return null
 })
 
-watch(currentCustomer, () => {
-  applyReward.value = false
-})
+watch(currentCustomer, () => { applyReward.value = false })
 
 const fetchPackages = async () => {
   try {
-    const { data, error } = await supabase
-      .from('packages')
-      .select('*')
-      .order('id')
-
+    const { data, error } = await supabase.from('packages').select('*').order('id')
     if (error) throw error
-    packages.value = data
+    packages.value = data || []
+    if (packages.value.length > 0) selectedPackage.value = packages.value[0]
   } catch (err) {
-    console.error('Error loading packages:', err.message)
+    console.error(err)
   } finally {
     loading.value = false
   }
 }
 
-// ดึงรายการจองของวันนี้ที่สถานะยังเป็น pending
 const fetchTodayBookings = async () => {
   try {
     const today = new Date().toISOString().split('T')[0]
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('bookings')
-      .select('*, packages(name, price)')
+      .select('*, packages(*)')
       .eq('booking_date', today)
       .eq('status', 'pending')
       .order('round_time')
-
-    if (error) throw error
     todayBookings.value = data || []
   } catch (err) {
-    console.error('Error loading bookings:', err.message)
+    console.error(err)
   }
-}
-
-// เมื่อพนักงานกดเลือกคิวจอง
-const selectBooking = async (booking) => {
-  activeBookingId.value = booking.id
-  selectedRound.value = booking.round_time
-
-  // 1. ใส่แพ็กเกจที่จองลงตะกร้า
-  const matchedPkg = packages.value.find(p => p.id === booking.package_id)
-  if (matchedPkg) {
-    cart.value = [{ ...matchedPkg, cartId: Date.now() }]
-  }
-
-  // 2. ดึงข้อมูลสมาชิกด้วยเบอร์โทรที่จองไว้
-  searchPhone.value = booking.customer_phone
-  await searchCustomer()
-
-  showBookingModal.value = false
 }
 
 const searchCustomer = async () => {
-  if (!searchPhone.value) return
+  if (!searchPhone.value.trim()) return
   searchError.value = ''
   currentCustomer.value = null
-
   try {
     const { data, error } = await supabase
       .from('customers')
       .select('*')
-      .eq('phone', searchPhone.value)
+      .eq('phone', searchPhone.value.trim())
       .single()
+    if (error || !data) {
+      searchError.value = 'ไม่พบเบอร์นี้ในระบบ'
+    } else {
+      currentCustomer.value = data
+    }
+  } catch {
+    searchError.value = 'ไม่พบเบอร์นี้ในระบบ'
+  }
+}
 
+const selectBookingItem = async (b) => {
+  activeBooking.value = b
+  selectedRound.value = b.round_time
+  const matched = packages.value.find(p => p.id === b.package_id)
+  if (matched) selectedPackage.value = matched
+  searchPhone.value = b.customer_phone
+  await searchCustomer()
+  showBookingModal.value = false
+}
+
+const handleRegisterWalkIn = async () => {
+  if (!newCustomerName.value.trim() || !newCustomerPhone.value.trim()) return
+  registerLoading.value = true
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .insert([{ name: newCustomerName.value.trim(), phone: newCustomerPhone.value.trim(), points: 0 }])
+      .select()
+      .single()
     if (error) throw error
-    if (data) currentCustomer.value = data
+    currentCustomer.value = data
+    searchPhone.value = data.phone
+    searchError.value = ''
+    showRegisterModal.value = false
   } catch (err) {
-    searchError.value = 'ไม่พบข้อมูลสมาชิกจากเบอร์นี้'
+    alert('ลงทะเบียนไม่สำเร็จ: ' + err.message)
+  } finally {
+    registerLoading.value = false
   }
 }
 
@@ -131,91 +126,70 @@ const clearCustomer = () => {
   currentCustomer.value = null
   searchPhone.value = ''
   searchError.value = ''
+  activeBooking.value = null
   applyReward.value = false
-  activeBookingId.value = null
 }
 
-const addToCart = (pkg) => {
-  cart.value.push({ ...pkg, cartId: Date.now() })
+// clamp ค่าที่พิมพ์เอง ไม่ให้ติดลบ/NaN
+const clampCount = (target) => {
+  if (target === 'targets') {
+    const val = Number(additionalTargets.value)
+    additionalTargets.value = isNaN(val) || val < 0 ? 0 : Math.floor(val)
+  } else {
+    const val = Number(lostArrows.value)
+    lostArrows.value = isNaN(val) || val < 0 ? 0 : Math.floor(val)
+  }
 }
 
-const removeFromCart = (index) => {
-  cart.value.splice(index, 1)
-}
-
-const packageTotal = computed(() => {
-  return cart.value.reduce((sum, item) => sum + Number(item.price), 0)
-})
-
+const packagePrice = computed(() => Number(selectedPackage.value?.price || 0))
 const discountAmount = computed(() => {
   if (!applyReward.value || !availableReward.value) return 0
-  return packageTotal.value * availableReward.value.rate
+  return packagePrice.value * availableReward.value.rate
 })
-
-const totalAmount = computed(() => {
-  const targetTotal = Number(additionalTargets.value) * 20
-  const arrowTotal = Number(lostArrows.value) * 150
-  const netPackageTotal = Math.max(0, packageTotal.value - discountAmount.value)
-  return netPackageTotal + targetTotal + arrowTotal
-})
+const targetsPrice = computed(() => additionalTargets.value * 20)
+const arrowsPrice = computed(() => lostArrows.value * 150)
+const netTotal = computed(() => Math.max(0, packagePrice.value - discountAmount.value) + targetsPrice.value + arrowsPrice.value)
 
 const handleCheckout = async () => {
-  if (cart.value.length === 0) return
+  if (!selectedPackage.value || isSubmitting.value) return
+  isSubmitting.value = true
 
   try {
-    // 1. บันทึกประวัติการใช้บริการ
-    const logsToInsert = cart.value.map(item => ({
+    const { error: logErr } = await supabase.from('service_logs').insert([{
       customer_id: currentCustomer.value ? currentCustomer.value.id : null,
-      package_id: item.id,
+      package_id: selectedPackage.value.id,
       round_time: selectedRound.value,
-      additional_targets: Number(additionalTargets.value),
-      lost_arrows: Number(lostArrows.value),
-      total_amount: totalAmount.value,
+      additional_targets: additionalTargets.value,
+      lost_arrows: lostArrows.value,
+      total_amount: netTotal.value,
       payment_method: paymentMethod.value,
       staff_id: 'STAFF-01'
-    }))
+    }])
+    if (logErr) throw logErr
 
-    const { error: logError } = await supabase
-      .from('service_logs')
-      .insert(logsToInsert)
-
-    if (logError) throw logError
-
-    // 2. ถ้าเป็นการเช็คอินจากการจอง ปรับสถานะเป็น completed
-    if (activeBookingId.value) {
-      await supabase
-        .from('bookings')
-        .update({ status: 'completed' })
-        .eq('id', activeBookingId.value)
+    if (activeBooking.value) {
+      await supabase.from('bookings').update({ status: 'completed' }).eq('id', activeBooking.value.id)
     }
 
-    // 3. ปรับปรุงแต้มสะสม
     if (currentCustomer.value) {
-      const currentPts = currentCustomer.value.points || 0
-      let nextPts = currentPts + 1
-
-      if (applyReward.value && availableReward.value?.type === 'FREE') {
-        nextPts = 0
-      }
-
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({ points: nextPts })
-        .eq('id', currentCustomer.value.id)
-
-      if (updateError) throw updateError
+      let nextPts = (currentCustomer.value.points || 0) + 1
+      if (applyReward.value && availableReward.value?.type === 'FREE') nextPts = 0
+      await supabase.from('customers').update({ points: nextPts }).eq('id', currentCustomer.value.id)
     }
 
-    alert('✅ บันทึกข้อมูลและชำระเงินเรียบร้อย!')
-    cart.value = []
+    // เล่นแอนิเมชันลูกธนูเด้ง
+    showArrowFly.value = false
+    requestAnimationFrame(() => { showArrowFly.value = true })
+    setTimeout(() => { showArrowFly.value = false }, 900)
+
     additionalTargets.value = 0
     lostArrows.value = 0
     clearCustomer()
     fetchTodayBookings()
-
   } catch (err) {
-    console.error('Checkout error:', err.message)
-    alert('❌ บันทึกไม่สำเร็จ: ' + err.message)
+    alert('เกิดข้อผิดพลาด: ' + err.message)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -226,249 +200,323 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-screen p-6 flex flex-col bg-[#0F1115] text-white overflow-hidden font-sans">
-    <!-- แถบ Header -->
-    <header class="mb-4 border-b border-[#2C2D30] pb-3 flex justify-between items-center shrink-0">
-      <div>
-        <h1 class="text-2xl font-black text-amber-500 tracking-wider">MR. HANDSOME ARCHERY</h1>
-        <p class="text-xs text-gray-400">Backyard Archery Service Management POS</p>
+  <div class="min-h-screen bg-[#0a0a0a] text-[#ececec] font-sans selection:bg-[#ffc93c] selection:text-black">
+    <header class="h-16 border-b border-[#262626] px-6 flex items-center justify-between bg-[#0a0a0a] sticky top-0 z-30">
+      <div class="flex items-center gap-3">
+        <svg viewBox="0 0 40 40" class="w-8 h-8 shrink-0">
+          <circle cx="20" cy="20" r="18" fill="none" stroke="#c9962b" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="11" fill="none" stroke="#c9962b" stroke-width="1.5"/>
+          <circle cx="20" cy="20" r="3" fill="#ffc93c"/>
+        </svg>
+        <div>
+          <h1 class="text-sm font-bold text-[#ececec] tracking-[0.08em]">MR. HANDSOME ARCHERY</h1>
+          <p class="text-[11px] text-[#767676] font-mono">จุดบริการเคาน์เตอร์แคชเชียร์</p>
+        </div>
       </div>
-      <div class="flex items-center gap-4">
-        <!-- ปุ่มเปิดดูรายการจองวันนี้ -->
-        <button 
+
+      <div class="flex items-center gap-3">
+        <button
           @click="showBookingModal = true"
-          class="relative bg-[#1C1E22] hover:bg-[#25282E] border border-[#2C2D30] px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-200 flex items-center gap-2 transition-all cursor-pointer"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-sm text-xs font-medium border border-[#2e2e2e] text-[#c9c9c9] hover:border-[#c9962b] hover:text-[#ffc93c] transition-colors duration-200 cursor-pointer"
         >
-          <span>📅 คิวจองวันนี้</span>
-          <span 
-            v-if="todayBookings.length > 0"
-            class="bg-amber-500 text-black text-[10px] font-black px-1.5 py-0.2 rounded-full"
-          >
+          <span>คิวจองวันนี้</span>
+          <span v-if="todayBookings.length > 0" class="bg-[#ffc93c] text-[#0a0a0a] text-[10px] font-bold px-1.5 rounded-full">
             {{ todayBookings.length }}
           </span>
         </button>
-        <div class="text-right text-xs text-emerald-400 font-mono">● LIVE DATABASE</div>
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-sm border border-[#2e2e2e] text-[11px] text-[#767676] font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>ONLINE</span>
+        </div>
       </div>
     </header>
 
-    <!-- ป้ายแจ้งเตือนเมื่อกำลังจัดการบิลจากการจอง -->
-    <div v-if="activeBookingId" class="mb-3 bg-blue-500/15 border border-blue-500/40 px-4 py-2 rounded-xl flex justify-between items-center shrink-0">
-      <div class="text-xs text-blue-300">
-        📌 กำลังเช็คอินจากรายการจอง (รหัส: #{{ activeBookingId }})
+    <transition name="fade-slide">
+      <div v-if="activeBooking" class="border-b border-[#262626] px-6 py-2.5 flex items-center justify-between text-xs text-[#ffc93c] font-mono">
+        <span>CHECK-IN: <strong>{{ activeBooking.customer_name }}</strong> · {{ activeBooking.round_time }}</span>
+        <button @click="clearCustomer" class="underline hover:text-white cursor-pointer">ยกเลิก</button>
       </div>
-      <button @click="clearCustomer" class="text-xs text-gray-400 hover:text-white underline cursor-pointer">
-        ยกเลิกการผูกคิวจอง
-      </button>
-    </div>
+    </transition>
 
-    <div class="flex-1 flex gap-6 overflow-hidden">
-      <!-- ฝั่งซ้าย: เมนูแพ็กเกจ -->
-      <div class="flex-1 overflow-y-auto pr-2 pb-10">
-        <h2 class="text-lg font-bold mb-3 text-white">เลือกแพ็กเกจบริการ</h2>
-        <div v-if="loading" class="text-gray-400 text-sm">กำลังโหลดข้อมูล...</div>
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <div 
-            v-for="pkg in packages" 
-            :key="pkg.id" 
-            @click="addToCart(pkg)"
-            class="bg-[#1C1E22] border border-[#2C2D30] p-5 rounded-xl hover:border-amber-500 hover:bg-[#25282E] transition-all cursor-pointer flex flex-col justify-between active:scale-95"
-          >
-            <div>
-              <h3 class="text-base font-bold text-white mb-1">{{ pkg.name }}</h3>
-              <p class="text-xs text-gray-400 mb-4 leading-relaxed">{{ pkg.description }}</p>
-            </div>
-            <div class="pt-3 border-t border-[#2C2D30] flex justify-between items-center">
-              <span class="text-xs text-gray-400">ราคา</span>
-              <span class="text-lg font-bold text-amber-400">฿{{ pkg.price }}</span>
-            </div>
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+
+      <div class="lg:col-span-7 space-y-0">
+
+        <!-- STEP 1 -->
+        <section class="border-t-2 border-[#c9962b] px-5 py-5">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[11px] font-mono text-[#c9962b] tracking-widest">01 / ข้อมูลสมาชิก</span>
+            <button v-if="currentCustomer" @click="clearCustomer" class="text-xs text-[#767676] hover:text-white underline cursor-pointer">เปลี่ยนลูกค้า</button>
           </div>
-        </div>
-      </div>
 
-      <!-- ฝั่งขวา: คิดเงินและข้อมูลลูกค้า -->
-      <div class="w-[430px] bg-[#1C1E22] border border-[#2C2D30] rounded-xl flex flex-col shrink-0">
-        <!-- ช่องค้นหาสมาชิก -->
-        <div class="p-4 border-b border-[#2C2D30] bg-[#15171A] rounded-t-xl space-y-3">
-          <div v-if="!currentCustomer" class="flex gap-2">
-            <input 
-              v-model="searchPhone"
-              @keyup.enter="searchCustomer"
-              type="text" 
-              placeholder="ค้นหาเบอร์สมาชิก..." 
-              class="flex-1 bg-[#0F1115] border border-[#2C2D30] text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-500 text-sm"
-            >
-            <button @click="searchCustomer" class="bg-amber-500 text-black px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-amber-400 cursor-pointer">ค้นหา</button>
-          </div>
-          <div v-if="searchError" class="text-red-400 text-xs">{{ searchError }}</div>
-
-          <div v-if="currentCustomer" class="space-y-2">
-            <div class="flex justify-between items-center bg-emerald-500/10 border border-emerald-500/30 p-2.5 rounded-lg">
-              <div>
-                <div class="text-emerald-400 font-bold text-sm">คุณ {{ currentCustomer.name }}</div>
-                <div class="text-gray-400 text-xs">แต้มสะสม: <span class="text-white font-bold text-sm">{{ currentCustomer.points || 0 }}</span> ครั้ง</div>
-              </div>
-              <button @click="clearCustomer" class="text-gray-400 hover:text-white text-xs underline cursor-pointer">เปลี่ยน</button>
+          <div v-if="!currentCustomer" class="space-y-3">
+            <div class="flex gap-2">
+              <input
+                v-model="searchPhone"
+                @keyup.enter="searchCustomer"
+                type="text"
+                placeholder="กรอกเบอร์โทรศัพท์ลูกค้า..."
+                class="flex-1 bg-[#161616] border border-[#333333] focus:border-[#c9962b] focus:ring-2 focus:ring-[#c9962b]/20 rounded-sm px-3.5 py-2.5 text-sm text-white placeholder-[#5a5a5a] outline-none transition-all duration-200"
+              >
+              <button @click="searchCustomer" class="bg-[#1a1a1a] hover:bg-[#222] border border-[#333333] hover:border-[#4a4a4a] text-white font-medium text-xs px-4 rounded-sm transition-colors duration-200 cursor-pointer">ค้นหา</button>
             </div>
-
-            <!-- กล่องแจ้งสิทธิ์ส่วนลด -->
-            <div v-if="availableReward" class="bg-amber-500/10 border border-amber-500/40 p-3 rounded-lg flex items-center justify-between">
-              <div>
-                <div class="text-xs font-bold text-amber-400">🎉 ปลดล็อกสิทธิ์พิเศษ!</div>
-                <div class="text-xs text-gray-300">{{ availableReward.label }}</div>
+            <transition name="fade-slide">
+              <div v-if="searchError" class="p-3 bg-[#161616] border border-[#333333] rounded-sm flex items-center justify-between">
+                <span class="text-xs text-[#9a9a9a]">{{ searchError }}</span>
+                <button @click="newCustomerPhone = searchPhone; showRegisterModal = true" class="text-xs font-semibold text-[#ffc93c] hover:text-white transition cursor-pointer">+ สมัครสมาชิกใหม่</button>
               </div>
+            </transition>
+          </div>
+
+          <div v-else class="p-4 bg-[#161616] border border-[#333333] border-l-2 border-l-[#c9962b] rounded-sm space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="text-base font-semibold text-white">{{ currentCustomer.name }}</h3>
+                <p class="text-xs text-[#9a9a9a] mt-0.5 font-mono">{{ currentCustomer.phone }}</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-[#9a9a9a]">แต้มสะสม</span>
+                <div class="text-lg font-bold text-[#ffc93c] font-mono">{{ currentCustomer.points || 0 }} <span class="text-xs text-[#9a9a9a] font-normal">/ 10</span></div>
+              </div>
+            </div>
+            <div class="w-full bg-[#2a2a2a] h-1 rounded-full overflow-hidden">
+              <div class="bg-[#c9962b] h-full rounded-full transition-all duration-500" :style="{ width: `${Math.min(100, ((currentCustomer.points || 0) / 10) * 100)}%` }"></div>
+            </div>
+            <div v-if="availableReward" class="pt-2 border-t border-[#333333] flex items-center justify-between">
+              <span class="text-xs text-[#ffc93c] font-medium">{{ availableReward.label }}</span>
               <label class="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  v-model="applyReward"
-                  class="w-4 h-4 accent-amber-500 cursor-pointer rounded"
-                >
-                <span class="text-xs font-bold text-amber-300">ใช้สิทธิ์</span>
+                <input type="checkbox" v-model="applyReward" class="accent-[#c9962b] w-4 h-4 cursor-pointer">
+                <span class="text-xs font-semibold text-white">ใช้สิทธิ์ในบิลนี้</span>
               </label>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- รายการสินค้าและฟอร์มบริการ -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-4">
-          <div>
-            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">รายการที่เลือก ({{ cart.length }})</span>
-            <div v-if="cart.length === 0" class="text-center text-gray-500 py-6 text-sm">ยังไม่มีรายการที่เลือก</div>
-            <div v-else class="space-y-2 mt-2">
-              <div 
-                v-for="(item, index) in cart" 
-                :key="item.cartId"
-                class="flex justify-between items-center bg-[#0F1115] p-2.5 rounded-lg border border-[#2C2D30]"
-              >
-                <div>
-                  <div class="font-medium text-sm text-white">{{ item.name }}</div>
-                  <div class="text-xs text-amber-400">฿{{ item.price }}</div>
+        <!-- STEP 2 -->
+        <section class="border-t border-[#1a1a1a] px-5 py-5">
+          <span class="text-[11px] font-mono text-[#c9962b] tracking-widest block mb-3">02 / รอบเวลาเข้าใช้บริการ</span>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+            <button v-for="slot in roundSlots" :key="slot.time" type="button" @click="selectedRound = slot.time"
+              :class="selectedRound === slot.time
+                ? 'border-[#ffc93c] text-[#ffc93c] bg-[#1a1509]'
+                : 'border-[#333333] bg-[#141414] text-[#9a9a9a] hover:border-[#4a4a4a] hover:bg-[#181818]'"
+              class="p-2.5 rounded-sm border text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-1 relative">
+              <span v-if="selectedRound === slot.time" class="absolute -bottom-px left-2 right-2 h-[2px] bg-[#ffc93c]"></span>
+              <span class="text-xs font-mono tracking-tight">{{ slot.time }}</span>
+              <span class="text-[10px] opacity-70">{{ slot.label }}</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- STEP 3 -->
+        <section class="border-t border-[#1a1a1a] px-5 py-5">
+          <span class="text-[11px] font-mono text-[#c9962b] tracking-widest block mb-3">03 / แพ็กเกจหลัก (เลือกได้ 1 แบบ)</span>
+          <div v-if="loading" class="text-xs text-[#4a4a4a] py-4 text-center">กำลังโหลดรายการแพ็กเกจ...</div>
+          <div v-else class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div v-for="pkg in packages" :key="pkg.id" @click="selectedPackage = pkg"
+              :class="selectedPackage?.id === pkg.id ? 'border-l-[3px] border-[#ffc93c] bg-[#161616]' : 'border-l-[3px] border-transparent bg-[#0e0e0e] hover:bg-[#141414]'"
+              class="p-4 border-t border-r border-b border-[#262626] rounded-r-sm cursor-pointer transition-all duration-200 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <h4 class="text-sm font-semibold text-white">{{ pkg.name }}</h4>
+                  <span v-if="selectedPackage?.id === pkg.id" class="w-4 h-4 rounded-full bg-[#ffc93c] flex items-center justify-center text-[9px] text-black font-bold">✓</span>
                 </div>
-                <button @click="removeFromCart(index)" class="text-red-400 hover:text-red-300 text-xs font-semibold px-2 py-1 cursor-pointer">ลบ</button>
+                <p class="text-xs text-[#9a9a9a] leading-relaxed">{{ pkg.description }}</p>
+              </div>
+              <div class="mt-4 pt-2.5 border-t border-[#262626] flex items-baseline justify-between">
+                <span class="text-[11px] text-[#5a5a5a]">อัตราค่าบริการ</span>
+                <span class="text-base font-bold text-white font-mono">฿{{ pkg.price }}</span>
               </div>
             </div>
           </div>
+        </section>
 
-          <!-- ฟอร์มสนาม -->
-          <div class="space-y-3 pt-3 border-t border-[#2C2D30] text-sm">
-            <div>
-              <label class="block text-xs font-bold text-gray-400 mb-1">รอบเวลายิงธนู</label>
-              <select v-model="selectedRound" class="w-full bg-[#0F1115] border border-[#2C2D30] text-white p-2 rounded-lg text-xs focus:border-amber-500 outline-none">
-                <option v-for="slot in roundSlots" :key="slot" :value="slot">{{ slot }}</option>
-              </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
+        <!-- STEP 4: เพิ่มช่องพิมพ์ตัวเลขได้ -->
+        <section class="border-t border-[#1a1a1a] px-5 py-5">
+          <span class="text-[11px] font-mono text-[#c9962b] tracking-widest block mb-3">04 / เป้ากระดาษเสริม / ค่าอุปกรณ์</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="p-3 bg-[#161616] border border-[#333333] rounded-sm flex items-center justify-between">
               <div>
-                <label class="block text-xs font-bold text-gray-400 mb-1">เป้าเพิ่ม (+20฿/เป้า)</label>
-                <input v-model.number="additionalTargets" type="number" min="0" class="w-full bg-[#0F1115] border border-[#2C2D30] text-white p-2 rounded-lg text-xs focus:border-amber-500 outline-none">
+                <span class="text-xs font-medium text-white block">เป้ากระดาษเพิ่ม</span>
+                <span class="text-[11px] text-[#9a9a9a]">+20฿ / แผ่น</span>
               </div>
+              <div class="flex items-center gap-1.5">
+                <button @click="additionalTargets = Math.max(0, additionalTargets - 1)" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">-</button>
+                <input
+                  type="number"
+                  v-model.number="additionalTargets"
+                  @blur="clampCount('targets')"
+                  min="0"
+                  class="w-12 text-center bg-transparent font-mono text-sm font-bold text-white outline-none focus:text-[#ffc93c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                >
+                <button @click="additionalTargets++" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">+</button>
+              </div>
+            </div>
+
+            <div class="p-3 bg-[#161616] border border-[#333333] rounded-sm flex items-center justify-between">
               <div>
-                <label class="block text-xs font-bold text-gray-400 mb-1">ลูกธนูชำรุด (+150฿/ลูก)</label>
-                <input v-model.number="lostArrows" type="number" min="0" class="w-full bg-[#0F1115] border border-[#2C2D30] text-white p-2 rounded-lg text-xs focus:border-amber-500 outline-none">
+                <span class="text-xs font-medium text-white block">ลูกธนูชำรุด / สูญหาย</span>
+                <span class="text-[11px] text-[#9a9a9a]">+150฿ / ลูก</span>
               </div>
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold text-gray-400 mb-1">ช่องทางชำระเงิน</label>
-              <div class="grid grid-cols-2 gap-2">
-                <button 
-                  type="button"
-                  @click="paymentMethod = 'Cash'"
-                  :class="paymentMethod === 'Cash' ? 'bg-amber-500 text-black font-bold' : 'bg-[#0F1115] text-gray-300 border border-[#2C2D30]'"
-                  class="py-2 rounded-lg text-xs transition-colors cursor-pointer"
+              <div class="flex items-center gap-1.5">
+                <button @click="lostArrows = Math.max(0, lostArrows - 1)" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">-</button>
+                <input
+                  type="number"
+                  v-model.number="lostArrows"
+                  @blur="clampCount('arrows')"
+                  min="0"
+                  class="w-12 text-center bg-transparent font-mono text-sm font-bold text-white outline-none focus:text-[#ffc93c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 >
-                  เงินสด (Cash)
-                </button>
-                <button 
-                  type="button"
-                  @click="paymentMethod = 'PromptPay'"
-                  :class="paymentMethod === 'PromptPay' ? 'bg-amber-500 text-black font-bold' : 'bg-[#0F1115] text-gray-300 border border-[#2C2D30]'"
-                  class="py-2 rounded-lg text-xs transition-colors cursor-pointer"
-                >
-                  สแกนจ่าย (QR Code)
-                </button>
+                <button @click="lostArrows++" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">+</button>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- แผงสรุปยอดเงิน -->
-        <div class="p-4 border-t border-[#2C2D30] bg-[#15171A] rounded-b-xl space-y-2">
-          <div class="space-y-1 text-xs text-gray-400">
-            <div class="flex justify-between">
-              <span>ค่าบริการแพ็กเกจ</span>
-              <span>฿{{ packageTotal.toLocaleString('th-TH') }}</span>
-            </div>
-            <div v-if="discountAmount > 0" class="flex justify-between text-emerald-400 font-medium">
-              <span>ส่วนลดสิทธิ์พิเศษ</span>
-              <span>-฿{{ discountAmount.toLocaleString('th-TH') }}</span>
-            </div>
-            <div v-if="additionalTargets > 0" class="flex justify-between">
-              <span>เป้ากระดาษ ({{ additionalTargets }} แผ่น)</span>
-              <span>+฿{{ (additionalTargets * 20).toLocaleString('th-TH') }}</span>
-            </div>
-            <div v-if="lostArrows > 0" class="flex justify-between text-red-400">
-              <span>ค่าปรับลูกธนู ({{ lostArrows }} ลูก)</span>
-              <span>+฿{{ (lostArrows * 150).toLocaleString('th-TH') }}</span>
-            </div>
-          </div>
-
-          <div class="flex justify-between items-center pt-2 border-t border-[#2C2D30]">
-            <span class="text-xs text-gray-300 font-medium">ยอดชำระสุทธิ</span>
-            <span class="text-2xl font-black text-amber-500">฿{{ totalAmount.toLocaleString('th-TH') }}</span>
-          </div>
-
-          <button 
-            @click="handleCheckout"
-            :disabled="cart.length === 0"
-            class="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed text-sm shadow-md active:scale-95 cursor-pointer"
-          >
-            บันทึกและชำระเงิน
-          </button>
-        </div>
+        </section>
       </div>
-    </div>
 
-    <!-- Modal หน้าต่างแสดงคิวจองประจำวัน -->
-    <div 
-      v-if="showBookingModal" 
-      class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-    >
-      <div class="bg-[#1C1E22] border border-[#2C2D30] w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
-        <div class="p-4 border-b border-[#2C2D30] flex justify-between items-center bg-[#15171A]">
-          <div>
-            <h3 class="font-bold text-white text-base">📅 คิวจองประจำวันนี้</h3>
-            <p class="text-xs text-gray-400">เลือกลูกค้าเพื่อดึงข้อมูลเข้าสู่การชำระเงิน</p>
-          </div>
-          <button @click="showBookingModal = false" class="text-gray-400 hover:text-white text-sm cursor-pointer">✕</button>
-        </div>
+      <!-- สรุปบิล -->
+      <div class="lg:col-span-5">
+        <div class="bg-[#0e0e0e] border border-[#262626] rounded-sm p-6 lg:sticky lg:top-24 space-y-5 relative">
+          <span class="absolute top-3 left-3 w-3 h-3 border-t border-l border-[#c9962b]/50"></span>
+          <span class="absolute top-3 right-3 w-3 h-3 border-t border-r border-[#c9962b]/50"></span>
+          <span class="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-[#c9962b]/50"></span>
+          <span class="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-[#c9962b]/50"></span>
 
-        <div class="p-4 overflow-y-auto space-y-3 flex-1">
-          <div v-if="todayBookings.length === 0" class="text-center py-8 text-gray-500 text-xs">
-            ไม่มีรายการจองที่รอการเช็คอินในวันนี้
+          <div class="flex items-center justify-between pb-3 border-b border-[#262626]">
+            <h3 class="text-sm font-semibold text-white">สรุปรายการบริการ</h3>
+            <span class="text-xs text-[#767676] font-mono">{{ selectedRound }}</span>
           </div>
-          <div 
-            v-for="b in todayBookings" 
-            :key="b.id"
-            class="bg-[#0F1115] border border-[#2C2D30] p-3.5 rounded-xl flex justify-between items-center hover:border-amber-500/60 transition-all"
-          >
-            <div>
-              <div class="font-bold text-sm text-amber-400">{{ b.customer_name }}</div>
-              <div class="text-xs text-gray-400">เบอร์: {{ b.customer_phone }}</div>
-              <div class="text-xs text-gray-300 mt-1">
-                รอบเวลา: <span class="text-white font-medium">{{ b.round_time }}</span> 
-                • แพ็กเกจ: <span class="text-emerald-400">{{ b.packages?.name || 'ไม่ได้ระบุ' }}</span>
-              </div>
+
+          <div class="space-y-3 text-xs">
+            <div class="flex justify-between items-center text-[#c9c9c9]">
+              <span>{{ selectedPackage?.name || 'ยังไม่ได้เลือกแพ็กเกจ' }}</span>
+              <span class="font-mono font-medium text-white">฿{{ packagePrice }}</span>
             </div>
-            <button 
-              @click="selectBooking(b)"
-              class="bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold px-3 py-2 rounded-lg cursor-pointer transition-all active:scale-95"
+            <div v-if="discountAmount > 0" class="flex justify-between items-center text-[#ffc93c]">
+              <span>ส่วนลดสิทธิ์สมาชิก</span>
+              <span class="font-mono font-medium">-฿{{ discountAmount }}</span>
+            </div>
+            <div v-if="additionalTargets > 0" class="flex justify-between items-center text-[#9a9a9a]">
+              <span>เป้ากระดาษเสริม ({{ additionalTargets }} แผ่น)</span>
+              <span class="font-mono text-[#c9c9c9]">+฿{{ targetsPrice }}</span>
+            </div>
+            <div v-if="lostArrows > 0" class="flex justify-between items-center text-[#c96a4a]">
+              <span>ค่าชดเชยลูกธนู ({{ lostArrows }} ลูก)</span>
+              <span class="font-mono font-medium">+฿{{ arrowsPrice }}</span>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-[#262626]">
+            <span class="text-[11px] text-[#767676] block mb-2 font-medium">ช่องทางการชำระเงิน</span>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" @click="paymentMethod = 'PromptPay'"
+                :class="paymentMethod === 'PromptPay' ? 'border-[#ffc93c] text-[#ffc93c] bg-[#1a1509]' : 'border-[#333333] text-[#9a9a9a] hover:border-[#4a4a4a]'"
+                class="py-2.5 rounded-sm text-xs border transition-all duration-200 cursor-pointer">สแกน QR (PromptPay)</button>
+              <button type="button" @click="paymentMethod = 'Cash'"
+                :class="paymentMethod === 'Cash' ? 'border-[#ffc93c] text-[#ffc93c] bg-[#1a1509]' : 'border-[#333333] text-[#9a9a9a] hover:border-[#4a4a4a]'"
+                class="py-2.5 rounded-sm text-xs border transition-all duration-200 cursor-pointer">เงินสด (Cash)</button>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-[#262626] flex items-baseline justify-between">
+            <span class="text-xs text-[#767676] font-medium">ยอดชำระสุทธิ</span>
+            <span class="text-3xl font-black text-[#ffc93c] font-mono tracking-tight">฿{{ netTotal }}</span>
+          </div>
+
+          <!-- ปุ่มชำระเงิน + จุดเกิดแอนิเมชันลูกธนู -->
+          <div class="relative">
+            <transition name="arrow-pop">
+              <div v-if="showArrowFly" class="pointer-events-none absolute inset-x-0 -top-1 flex justify-center z-10">
+                <span class="arrow-fly text-2xl">🏹</span>
+              </div>
+            </transition>
+            <button
+              @click="handleCheckout"
+              :disabled="!selectedPackage || isSubmitting"
+              class="w-full bg-[#ffc93c] hover:bg-[#ffd75e] text-[#0a0a0a] font-bold py-3.5 rounded-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-sm"
             >
-              เช็คอินบิลนี้
+              {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึกและชำระเงิน' }}
             </button>
           </div>
         </div>
       </div>
-    </div>
+
+    </main>
+
+    <!-- Modal: คิวจองวันนี้ -->
+    <transition name="fade-slide">
+      <div v-if="showBookingModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-[#0e0e0e] border border-[#262626] w-full max-w-lg rounded-sm p-5 space-y-4">
+          <div class="flex justify-between items-center pb-2 border-b border-[#262626]">
+            <h3 class="text-sm font-semibold text-white">คิวจองประจำวันนี้</h3>
+            <button @click="showBookingModal = false" class="text-[#767676] hover:text-white text-sm cursor-pointer">✕</button>
+          </div>
+          <div class="max-h-72 overflow-y-auto space-y-2.5 pr-1">
+            <div v-if="todayBookings.length === 0" class="text-center py-8 text-xs text-[#5a5a5a]">
+              ยังไม่มีรายการจองที่รอเข้าใช้บริการ
+            </div>
+            <div v-for="b in todayBookings" :key="b.id"
+              class="p-3.5 rounded-sm bg-[#161616] border border-[#333333] flex items-center justify-between hover:border-[#4a4a4a] transition-colors duration-200">
+              <div>
+                <span class="text-sm font-medium text-white block">{{ b.customer_name }} ({{ b.customer_phone }})</span>
+                <span class="text-xs text-[#9a9a9a] mt-0.5 block">รอบ: {{ b.round_time }} • {{ b.packages?.name || 'ไม่ระบุแพ็กเกจ' }}</span>
+              </div>
+              <button @click="selectBookingItem(b)" class="bg-[#ffc93c] hover:bg-[#ffd75e] text-[#0a0a0a] text-xs font-semibold px-3 py-1.5 rounded-sm cursor-pointer transition-colors duration-200">เช็คอิน</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Modal: ลงทะเบียน Walk-in -->
+    <transition name="fade-slide">
+      <div v-if="showRegisterModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-[#0e0e0e] border border-[#262626] w-full max-w-sm rounded-sm p-5 space-y-4">
+          <div class="flex justify-between items-center pb-2 border-b border-[#262626]">
+            <h3 class="text-sm font-semibold text-white">ลงทะเบียนสมาชิกใหม่</h3>
+            <button @click="showRegisterModal = false" class="text-[#767676] hover:text-white text-sm cursor-pointer">✕</button>
+          </div>
+          <form @submit.prevent="handleRegisterWalkIn" class="space-y-3 text-xs">
+            <div>
+              <label class="block text-[#9a9a9a] mb-1">เบอร์โทรศัพท์</label>
+              <input v-model="newCustomerPhone" type="tel" required class="w-full bg-[#161616] border border-[#333333] focus:border-[#c9962b] focus:ring-2 focus:ring-[#c9962b]/20 text-white p-2.5 rounded-sm outline-none transition-all duration-200">
+            </div>
+            <div>
+              <label class="block text-[#9a9a9a] mb-1">ชื่อลูกค้า</label>
+              <input v-model="newCustomerName" type="text" placeholder="ระบุชื่อลูกค้า..." required class="w-full bg-[#161616] border border-[#333333] focus:border-[#c9962b] focus:ring-2 focus:ring-[#c9962b]/20 text-white p-2.5 rounded-sm outline-none transition-all duration-200">
+            </div>
+            <button type="submit" :disabled="registerLoading" class="w-full bg-[#ffc93c] hover:bg-[#ffd75e] text-[#0a0a0a] font-bold py-2.5 rounded-sm transition-colors duration-200 cursor-pointer mt-2 text-xs">
+              {{ registerLoading ? 'กำลังบันทึก...' : 'ยืนยันลงทะเบียน' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </transition>
+
   </div>
 </template>
+
+<style scoped>
+.arrow-fly {
+  display: inline-block;
+  animation: arrow-arc 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes arrow-arc {
+  0%   { transform: translateY(0) rotate(-50deg); opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { transform: translateY(-42px) rotate(0deg); }
+  100% { transform: translateY(6px) rotate(35deg); opacity: 0; }
+}
+
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-slide-enter-from, .fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.arrow-pop-enter-active { transition: none; }
+.arrow-pop-leave-active { transition: opacity 0.3s ease; }
+.arrow-pop-leave-to { opacity: 0; }
+</style>
