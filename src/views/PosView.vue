@@ -1,7 +1,18 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
+const router = useRouter()
+
+// ---------- Theme ----------
+const theme = ref('dark')
+const toggleTheme = () => {
+  theme.value = theme.value === 'dark' ? 'light' : 'dark'
+  localStorage.setItem('mha-theme', theme.value)
+}
+
+// ---------- Data States ----------
 const packages = ref([])
 const loading = ref(true)
 const selectedPackage = ref(null)
@@ -31,7 +42,7 @@ const additionalTargets = ref(0)
 const lostArrows = ref(0)
 const paymentMethod = ref('PromptPay')
 const isSubmitting = ref(false)
-const showArrowFly = ref(false) // trigger animation ตอนบันทึกสำเร็จ
+const showArrowFly = ref(false)
 
 const availableReward = computed(() => {
   if (!currentCustomer.value) return null
@@ -130,7 +141,6 @@ const clearCustomer = () => {
   applyReward.value = false
 }
 
-// clamp ค่าที่พิมพ์เอง ไม่ให้ติดลบ/NaN
 const clampCount = (target) => {
   if (target === 'targets') {
     const val = Number(additionalTargets.value)
@@ -153,7 +163,6 @@ const netTotal = computed(() => Math.max(0, packagePrice.value - discountAmount.
 const handleCheckout = async () => {
   if (!selectedPackage.value || isSubmitting.value) return
   isSubmitting.value = true
-
   try {
     const { error: logErr } = await supabase.from('service_logs').insert([{
       customer_id: currentCustomer.value ? currentCustomer.value.id : null,
@@ -177,7 +186,6 @@ const handleCheckout = async () => {
       await supabase.from('customers').update({ points: nextPts }).eq('id', currentCustomer.value.id)
     }
 
-    // เล่นแอนิเมชันลูกธนูเด้ง
     showArrowFly.value = false
     requestAnimationFrame(() => { showArrowFly.value = true })
     setTimeout(() => { showArrowFly.value = false }, 900)
@@ -194,329 +202,489 @@ const handleCheckout = async () => {
 }
 
 onMounted(() => {
+  theme.value = localStorage.getItem('mha-theme') || 'dark'
   fetchPackages()
   fetchTodayBookings()
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0a0a0a] text-[#ececec] font-sans selection:bg-[#ffc93c] selection:text-black">
-    <header class="h-16 border-b border-[#262626] px-6 flex items-center justify-between bg-[#0a0a0a] sticky top-0 z-30">
-      <div class="flex items-center gap-3">
-        <svg viewBox="0 0 40 40" class="w-8 h-8 shrink-0">
-          <circle cx="20" cy="20" r="18" fill="none" stroke="#c9962b" stroke-width="1.5"/>
-          <circle cx="20" cy="20" r="11" fill="none" stroke="#c9962b" stroke-width="1.5"/>
-          <circle cx="20" cy="20" r="3" fill="#ffc93c"/>
-        </svg>
-        <div>
-          <h1 class="text-sm font-bold text-[#ececec] tracking-[0.08em]">MR. HANDSOME ARCHERY</h1>
-          <p class="text-[11px] text-[#767676] font-mono">จุดบริการเคาน์เตอร์แคชเชียร์</p>
+  <div class="app-root" :data-theme="theme">
+    <!-- Ambient glow -->
+    <div class="glow-layer" aria-hidden="true">
+      <span class="glow glow-a"></span>
+      <span class="glow glow-b"></span>
+    </div>
+    <div class="grain-layer" aria-hidden="true"></div>
+
+    <div class="min-h-screen relative font-sans" style="color: var(--text)">
+      <header class="h-16 px-6 flex items-center justify-between sticky top-0 z-30 header-surface">
+        <div class="flex items-center gap-3">
+          <svg viewBox="0 0 40 40" class="w-8 h-8 shrink-0">
+            <circle cx="20" cy="20" r="18" fill="none" stroke="var(--gold)" stroke-width="1.5"/>
+            <circle cx="20" cy="20" r="11" fill="none" stroke="var(--gold)" stroke-width="1.5"/>
+            <circle cx="20" cy="20" r="3" fill="var(--gold-bright)"/>
+          </svg>
+          <div>
+            <h1 class="text-sm font-bold tracking-[0.08em]" style="color: var(--text)">MR. HANDSOME ARCHERY</h1>
+            <p class="text-[11px] font-mono" style="color: var(--text-muted)">จุดบริการเคาน์เตอร์แคชเชียร์</p>
+          </div>
         </div>
-      </div>
 
-      <div class="flex items-center gap-3">
-        <button
-          @click="showBookingModal = true"
-          class="flex items-center gap-2 px-3 py-1.5 rounded-sm text-xs font-medium border border-[#2e2e2e] text-[#c9c9c9] hover:border-[#c9962b] hover:text-[#ffc93c] transition-colors duration-200 cursor-pointer"
-        >
-          <span>คิวจองวันนี้</span>
-          <span v-if="todayBookings.length > 0" class="bg-[#ffc93c] text-[#0a0a0a] text-[10px] font-bold px-1.5 rounded-full">
-            {{ todayBookings.length }}
-          </span>
-        </button>
-        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-sm border border-[#2e2e2e] text-[11px] text-[#767676] font-mono">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>ONLINE</span>
+        <div class="flex items-center gap-3">
+          <!-- ปุ่มสลับธีม -->
+          <button @click="toggleTheme" class="theme-toggle" :aria-label="theme === 'dark' ? 'สลับเป็นโหมดสว่าง' : 'สลับเป็นโหมดมืด'">
+            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/>
+            </svg>
+          </button>
+
+          <!-- ปุ่มไปหน้า Dashboard -->
+          <button @click="router.push('/dashboard')" class="btn-ghost flex items-center gap-2 px-3 py-1.5 text-xs font-medium">
+            <span>📊 แดชบอร์ดสรุปยอด</span>
+          </button>
+
+          <!-- ปุ่มคิวจอง -->
+          <button @click="showBookingModal = true" class="btn-ghost flex items-center gap-2 px-3 py-1.5 text-xs font-medium">
+            <span>คิวจองวันนี้</span>
+            <span v-if="todayBookings.length > 0" class="badge-count">{{ todayBookings.length }}</span>
+          </button>
+
+          <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-sm text-[11px] font-mono status-pill">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>ONLINE</span>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <transition name="fade-slide">
-      <div v-if="activeBooking" class="border-b border-[#262626] px-6 py-2.5 flex items-center justify-between text-xs text-[#ffc93c] font-mono">
-        <span>CHECK-IN: <strong>{{ activeBooking.customer_name }}</strong> · {{ activeBooking.round_time }}</span>
-        <button @click="clearCustomer" class="underline hover:text-white cursor-pointer">ยกเลิก</button>
-      </div>
-    </transition>
+      <transition name="fade-slide">
+        <div v-if="activeBooking" class="px-6 py-2.5 flex items-center justify-between text-xs font-mono strip-surface" style="color: var(--gold-bright)">
+          <span>CHECK-IN: <strong>{{ activeBooking.customer_name }}</strong> · {{ activeBooking.round_time }}</span>
+          <button @click="clearCustomer" class="underline cursor-pointer" style="color: var(--gold-bright)">ยกเลิก</button>
+        </div>
+      </transition>
 
-    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+      <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
 
-      <div class="lg:col-span-7 space-y-0">
+        <div class="lg:col-span-7 space-y-5">
 
-        <!-- STEP 1 -->
-        <section class="border-t-2 border-[#c9962b] px-5 py-5">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-[11px] font-mono text-[#c9962b] tracking-widest">01 / ข้อมูลสมาชิก</span>
-            <button v-if="currentCustomer" @click="clearCustomer" class="text-xs text-[#767676] hover:text-white underline cursor-pointer">เปลี่ยนลูกค้า</button>
-          </div>
-
-          <div v-if="!currentCustomer" class="space-y-3">
-            <div class="flex gap-2">
-              <input
-                v-model="searchPhone"
-                @keyup.enter="searchCustomer"
-                type="text"
-                placeholder="กรอกเบอร์โทรศัพท์ลูกค้า..."
-                class="flex-1 bg-[#161616] border border-[#333333] focus:border-[#c9962b] focus:ring-2 focus:ring-[#c9962b]/20 rounded-sm px-3.5 py-2.5 text-sm text-white placeholder-[#5a5a5a] outline-none transition-all duration-200"
-              >
-              <button @click="searchCustomer" class="bg-[#1a1a1a] hover:bg-[#222] border border-[#333333] hover:border-[#4a4a4a] text-white font-medium text-xs px-4 rounded-sm transition-colors duration-200 cursor-pointer">ค้นหา</button>
+          <!-- STEP 1 -->
+          <section class="panel p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="label-eyebrow">01 / ข้อมูลสมาชิก</span>
+              <button v-if="currentCustomer" @click="clearCustomer" class="text-xs underline cursor-pointer" style="color: var(--text-muted)">เปลี่ยนลูกค้า</button>
             </div>
-            <transition name="fade-slide">
-              <div v-if="searchError" class="p-3 bg-[#161616] border border-[#333333] rounded-sm flex items-center justify-between">
-                <span class="text-xs text-[#9a9a9a]">{{ searchError }}</span>
-                <button @click="newCustomerPhone = searchPhone; showRegisterModal = true" class="text-xs font-semibold text-[#ffc93c] hover:text-white transition cursor-pointer">+ สมัครสมาชิกใหม่</button>
+
+            <div v-if="!currentCustomer" class="space-y-3">
+              <div class="flex gap-2">
+                <input v-model="searchPhone" @keyup.enter="searchCustomer" type="text" placeholder="กรอกเบอร์โทรศัพท์ลูกค้า..." class="input-field flex-1">
+                <button @click="searchCustomer" class="btn-ghost px-4 text-xs font-medium">ค้นหา</button>
               </div>
-            </transition>
-          </div>
-
-          <div v-else class="p-4 bg-[#161616] border border-[#333333] border-l-2 border-l-[#c9962b] rounded-sm space-y-3">
-            <div class="flex justify-between items-start">
-              <div>
-                <h3 class="text-base font-semibold text-white">{{ currentCustomer.name }}</h3>
-                <p class="text-xs text-[#9a9a9a] mt-0.5 font-mono">{{ currentCustomer.phone }}</p>
-              </div>
-              <div class="text-right">
-                <span class="text-xs text-[#9a9a9a]">แต้มสะสม</span>
-                <div class="text-lg font-bold text-[#ffc93c] font-mono">{{ currentCustomer.points || 0 }} <span class="text-xs text-[#9a9a9a] font-normal">/ 10</span></div>
-              </div>
-            </div>
-            <div class="w-full bg-[#2a2a2a] h-1 rounded-full overflow-hidden">
-              <div class="bg-[#c9962b] h-full rounded-full transition-all duration-500" :style="{ width: `${Math.min(100, ((currentCustomer.points || 0) / 10) * 100)}%` }"></div>
-            </div>
-            <div v-if="availableReward" class="pt-2 border-t border-[#333333] flex items-center justify-between">
-              <span class="text-xs text-[#ffc93c] font-medium">{{ availableReward.label }}</span>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" v-model="applyReward" class="accent-[#c9962b] w-4 h-4 cursor-pointer">
-                <span class="text-xs font-semibold text-white">ใช้สิทธิ์ในบิลนี้</span>
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <!-- STEP 2 -->
-        <section class="border-t border-[#1a1a1a] px-5 py-5">
-          <span class="text-[11px] font-mono text-[#c9962b] tracking-widest block mb-3">02 / รอบเวลาเข้าใช้บริการ</span>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
-            <button v-for="slot in roundSlots" :key="slot.time" type="button" @click="selectedRound = slot.time"
-              :class="selectedRound === slot.time
-                ? 'border-[#ffc93c] text-[#ffc93c] bg-[#1a1509]'
-                : 'border-[#333333] bg-[#141414] text-[#9a9a9a] hover:border-[#4a4a4a] hover:bg-[#181818]'"
-              class="p-2.5 rounded-sm border text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center gap-1 relative">
-              <span v-if="selectedRound === slot.time" class="absolute -bottom-px left-2 right-2 h-[2px] bg-[#ffc93c]"></span>
-              <span class="text-xs font-mono tracking-tight">{{ slot.time }}</span>
-              <span class="text-[10px] opacity-70">{{ slot.label }}</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- STEP 3 -->
-        <section class="border-t border-[#1a1a1a] px-5 py-5">
-          <span class="text-[11px] font-mono text-[#c9962b] tracking-widest block mb-3">03 / แพ็กเกจหลัก (เลือกได้ 1 แบบ)</span>
-          <div v-if="loading" class="text-xs text-[#4a4a4a] py-4 text-center">กำลังโหลดรายการแพ็กเกจ...</div>
-          <div v-else class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div v-for="pkg in packages" :key="pkg.id" @click="selectedPackage = pkg"
-              :class="selectedPackage?.id === pkg.id ? 'border-l-[3px] border-[#ffc93c] bg-[#161616]' : 'border-l-[3px] border-transparent bg-[#0e0e0e] hover:bg-[#141414]'"
-              class="p-4 border-t border-r border-b border-[#262626] rounded-r-sm cursor-pointer transition-all duration-200 flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <h4 class="text-sm font-semibold text-white">{{ pkg.name }}</h4>
-                  <span v-if="selectedPackage?.id === pkg.id" class="w-4 h-4 rounded-full bg-[#ffc93c] flex items-center justify-center text-[9px] text-black font-bold">✓</span>
+              <transition name="fade-slide">
+                <div v-if="searchError" class="p-3 rounded-sm flex items-center justify-between inset-surface">
+                  <span class="text-xs" style="color: var(--text-muted)">{{ searchError }}</span>
+                  <button @click="newCustomerPhone = searchPhone; showRegisterModal = true" class="text-xs font-semibold cursor-pointer" style="color: var(--gold-bright)">+ สมัครสมาชิกใหม่</button>
                 </div>
-                <p class="text-xs text-[#9a9a9a] leading-relaxed">{{ pkg.description }}</p>
-              </div>
-              <div class="mt-4 pt-2.5 border-t border-[#262626] flex items-baseline justify-between">
-                <span class="text-[11px] text-[#5a5a5a]">อัตราค่าบริการ</span>
-                <span class="text-base font-bold text-white font-mono">฿{{ pkg.price }}</span>
-              </div>
+              </transition>
             </div>
-          </div>
-        </section>
 
-        <!-- STEP 4: เพิ่มช่องพิมพ์ตัวเลขได้ -->
-        <section class="border-t border-[#1a1a1a] px-5 py-5">
-          <span class="text-[11px] font-mono text-[#c9962b] tracking-widest block mb-3">04 / เป้ากระดาษเสริม / ค่าอุปกรณ์</span>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="p-3 bg-[#161616] border border-[#333333] rounded-sm flex items-center justify-between">
-              <div>
-                <span class="text-xs font-medium text-white block">เป้ากระดาษเพิ่ม</span>
-                <span class="text-[11px] text-[#9a9a9a]">+20฿ / แผ่น</span>
+            <div v-else class="p-4 rounded-sm space-y-3 inset-surface" style="border-left: 2px solid var(--gold)">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h3 class="text-base font-semibold" style="color: var(--text)">{{ currentCustomer.name }}</h3>
+                  <p class="text-xs mt-0.5 font-mono" style="color: var(--text-muted)">{{ currentCustomer.phone }}</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs" style="color: var(--text-muted)">แต้มสะสม</span>
+                  <div class="text-lg font-bold font-mono" style="color: var(--gold-bright)">{{ currentCustomer.points || 0 }} <span class="text-xs font-normal" style="color: var(--text-muted)">/ 10</span></div>
+                </div>
               </div>
-              <div class="flex items-center gap-1.5">
-                <button @click="additionalTargets = Math.max(0, additionalTargets - 1)" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">-</button>
-                <input
-                  type="number"
-                  v-model.number="additionalTargets"
-                  @blur="clampCount('targets')"
-                  min="0"
-                  class="w-12 text-center bg-transparent font-mono text-sm font-bold text-white outline-none focus:text-[#ffc93c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                >
-                <button @click="additionalTargets++" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">+</button>
+              <div class="progress-track">
+                <div class="progress-fill" :style="{ width: `${Math.min(100, ((currentCustomer.points || 0) / 10) * 100)}%` }"></div>
+              </div>
+              <div v-if="availableReward" class="pt-2 flex items-center justify-between" style="border-top: 1px solid var(--border)">
+                <span class="text-xs font-medium" style="color: var(--gold-bright)">{{ availableReward.label }}</span>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" v-model="applyReward" class="w-4 h-4 cursor-pointer" style="accent-color: var(--gold)">
+                  <span class="text-xs font-semibold" style="color: var(--text)">ใช้สิทธิ์ในบิลนี้</span>
+                </label>
               </div>
             </div>
+          </section>
 
-            <div class="p-3 bg-[#161616] border border-[#333333] rounded-sm flex items-center justify-between">
-              <div>
-                <span class="text-xs font-medium text-white block">ลูกธนูชำรุด / สูญหาย</span>
-                <span class="text-[11px] text-[#9a9a9a]">+150฿ / ลูก</span>
+          <!-- STEP 2 -->
+          <section class="panel p-5">
+            <span class="label-eyebrow block mb-3">02 / รอบเวลาเข้าใช้บริการ</span>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+              <button v-for="slot in roundSlots" :key="slot.time" type="button" @click="selectedRound = slot.time"
+                :class="['round-chip', selectedRound === slot.time ? 'round-chip-active' : '']">
+                <span class="text-xs font-mono tracking-tight">{{ slot.time }}</span>
+                <span class="text-[10px] opacity-70">{{ slot.label }}</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- STEP 3 -->
+          <section class="panel p-5">
+            <span class="label-eyebrow block mb-3">03 / แพ็กเกจหลัก (เลือกได้ 1 แบบ)</span>
+            <div v-if="loading" class="text-xs py-4 text-center" style="color: var(--text-muted)">กำลังโหลดรายการแพ็กเกจ...</div>
+            <div v-else class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div v-for="pkg in packages" :key="pkg.id" @click="selectedPackage = pkg"
+                :class="['pkg-card', selectedPackage?.id === pkg.id ? 'pkg-card-active' : '']">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <h4 class="text-sm font-semibold" style="color: var(--text)">{{ pkg.name }}</h4>
+                    <span v-if="selectedPackage?.id === pkg.id" class="pkg-check">✓</span>
+                  </div>
+                  <p class="text-xs leading-relaxed" style="color: var(--text-muted)">{{ pkg.description }}</p>
+                </div>
+                <div class="mt-4 pt-2.5 flex items-baseline justify-between" style="border-top: 1px solid var(--border)">
+                  <span class="text-[11px]" style="color: var(--text-faint)">อัตราค่าบริการ</span>
+                  <span class="text-base font-bold font-mono" style="color: var(--text)">฿{{ pkg.price }}</span>
+                </div>
               </div>
-              <div class="flex items-center gap-1.5">
-                <button @click="lostArrows = Math.max(0, lostArrows - 1)" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">-</button>
-                <input
-                  type="number"
-                  v-model.number="lostArrows"
-                  @blur="clampCount('arrows')"
-                  min="0"
-                  class="w-12 text-center bg-transparent font-mono text-sm font-bold text-white outline-none focus:text-[#ffc93c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                >
-                <button @click="lostArrows++" class="w-8 h-8 rounded-sm border border-[#333333] hover:border-[#c9962b] text-white flex items-center justify-center font-bold text-sm transition-colors duration-200 cursor-pointer">+</button>
+            </div>
+          </section>
+
+          <!-- STEP 4 -->
+          <section class="panel p-5">
+            <span class="label-eyebrow block mb-3">04 / เป้ากระดาษเสริม / ค่าอุปกรณ์</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="p-3 rounded-sm flex items-center justify-between inset-surface">
+                <div>
+                  <span class="text-xs font-medium block" style="color: var(--text)">เป้ากระดาษเพิ่ม</span>
+                  <span class="text-[11px]" style="color: var(--text-muted)">+20฿ / แผ่น</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button @click="additionalTargets = Math.max(0, additionalTargets - 1)" class="stepper-btn">-</button>
+                  <input 
+                    type="number" 
+                    v-model.number="additionalTargets" 
+                    @focus="$event.target.select()"
+                    @blur="clampCount('targets')" 
+                    min="0" 
+                    class="stepper-input"
+                  >
+                  <button @click="additionalTargets++" class="stepper-btn">+</button>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-sm flex items-center justify-between inset-surface">
+                <div>
+                  <span class="text-xs font-medium block" style="color: var(--text)">ลูกธนูชำรุด / สูญหาย</span>
+                  <span class="text-[11px]" style="color: var(--text-muted)">+150฿ / ลูก</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button @click="lostArrows = Math.max(0, lostArrows - 1)" class="stepper-btn">-</button>
+                  <input 
+                    type="number" 
+                    v-model.number="lostArrows" 
+                    @focus="$event.target.select()"
+                    @blur="clampCount('arrows')" 
+                    min="0" 
+                    class="stepper-input"
+                  >
+                  <button @click="lostArrows++" class="stepper-btn">+</button>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
 
-      <!-- สรุปบิล -->
-      <div class="lg:col-span-5">
-        <div class="bg-[#0e0e0e] border border-[#262626] rounded-sm p-6 lg:sticky lg:top-24 space-y-5 relative">
-          <span class="absolute top-3 left-3 w-3 h-3 border-t border-l border-[#c9962b]/50"></span>
-          <span class="absolute top-3 right-3 w-3 h-3 border-t border-r border-[#c9962b]/50"></span>
-          <span class="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-[#c9962b]/50"></span>
-          <span class="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-[#c9962b]/50"></span>
+        <!-- สรุปบิล -->
+        <div class="lg:col-span-5">
+          <div class="panel panel-strong p-6 lg:sticky lg:top-24 space-y-5 relative">
+            <span class="corner corner-tl"></span>
+            <span class="corner corner-tr"></span>
+            <span class="corner corner-bl"></span>
+            <span class="corner corner-br"></span>
 
-          <div class="flex items-center justify-between pb-3 border-b border-[#262626]">
-            <h3 class="text-sm font-semibold text-white">สรุปรายการบริการ</h3>
-            <span class="text-xs text-[#767676] font-mono">{{ selectedRound }}</span>
-          </div>
-
-          <div class="space-y-3 text-xs">
-            <div class="flex justify-between items-center text-[#c9c9c9]">
-              <span>{{ selectedPackage?.name || 'ยังไม่ได้เลือกแพ็กเกจ' }}</span>
-              <span class="font-mono font-medium text-white">฿{{ packagePrice }}</span>
+            <div class="flex items-center justify-between pb-3" style="border-bottom: 1px solid var(--border)">
+              <h3 class="text-sm font-semibold" style="color: var(--text)">สรุปรายการบริการ</h3>
+              <span class="text-xs font-mono" style="color: var(--text-muted)">{{ selectedRound }}</span>
             </div>
-            <div v-if="discountAmount > 0" class="flex justify-between items-center text-[#ffc93c]">
-              <span>ส่วนลดสิทธิ์สมาชิก</span>
-              <span class="font-mono font-medium">-฿{{ discountAmount }}</span>
-            </div>
-            <div v-if="additionalTargets > 0" class="flex justify-between items-center text-[#9a9a9a]">
-              <span>เป้ากระดาษเสริม ({{ additionalTargets }} แผ่น)</span>
-              <span class="font-mono text-[#c9c9c9]">+฿{{ targetsPrice }}</span>
-            </div>
-            <div v-if="lostArrows > 0" class="flex justify-between items-center text-[#c96a4a]">
-              <span>ค่าชดเชยลูกธนู ({{ lostArrows }} ลูก)</span>
-              <span class="font-mono font-medium">+฿{{ arrowsPrice }}</span>
-            </div>
-          </div>
 
-          <div class="pt-3 border-t border-[#262626]">
-            <span class="text-[11px] text-[#767676] block mb-2 font-medium">ช่องทางการชำระเงิน</span>
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" @click="paymentMethod = 'PromptPay'"
-                :class="paymentMethod === 'PromptPay' ? 'border-[#ffc93c] text-[#ffc93c] bg-[#1a1509]' : 'border-[#333333] text-[#9a9a9a] hover:border-[#4a4a4a]'"
-                class="py-2.5 rounded-sm text-xs border transition-all duration-200 cursor-pointer">สแกน QR (PromptPay)</button>
-              <button type="button" @click="paymentMethod = 'Cash'"
-                :class="paymentMethod === 'Cash' ? 'border-[#ffc93c] text-[#ffc93c] bg-[#1a1509]' : 'border-[#333333] text-[#9a9a9a] hover:border-[#4a4a4a]'"
-                class="py-2.5 rounded-sm text-xs border transition-all duration-200 cursor-pointer">เงินสด (Cash)</button>
-            </div>
-          </div>
-
-          <div class="pt-4 border-t border-[#262626] flex items-baseline justify-between">
-            <span class="text-xs text-[#767676] font-medium">ยอดชำระสุทธิ</span>
-            <span class="text-3xl font-black text-[#ffc93c] font-mono tracking-tight">฿{{ netTotal }}</span>
-          </div>
-
-          <!-- ปุ่มชำระเงิน + จุดเกิดแอนิเมชันลูกธนู -->
-          <div class="relative">
-            <transition name="arrow-pop">
-              <div v-if="showArrowFly" class="pointer-events-none absolute inset-x-0 -top-1 flex justify-center z-10">
-                <span class="arrow-fly text-2xl">🏹</span>
+            <div class="space-y-3 text-xs">
+              <div class="flex justify-between items-center" style="color: var(--text-soft)">
+                <span>{{ selectedPackage?.name || 'ยังไม่ได้เลือกแพ็กเกจ' }}</span>
+                <span class="font-mono font-medium" style="color: var(--text)">฿{{ packagePrice }}</span>
               </div>
-            </transition>
-            <button
-              @click="handleCheckout"
-              :disabled="!selectedPackage || isSubmitting"
-              class="w-full bg-[#ffc93c] hover:bg-[#ffd75e] text-[#0a0a0a] font-bold py-3.5 rounded-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-sm"
-            >
-              {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึกและชำระเงิน' }}
-            </button>
+              <div v-if="discountAmount > 0" class="flex justify-between items-center" style="color: var(--gold-bright)">
+                <span>ส่วนลดสิทธิ์สมาชิก</span>
+                <span class="font-mono font-medium">-฿{{ discountAmount }}</span>
+              </div>
+              <div v-if="additionalTargets > 0" class="flex justify-between items-center" style="color: var(--text-muted)">
+                <span>เป้ากระดาษเสริม ({{ additionalTargets }} แผ่น)</span>
+                <span class="font-mono" style="color: var(--text-soft)">+฿{{ targetsPrice }}</span>
+              </div>
+              <div v-if="lostArrows > 0" class="flex justify-between items-center" style="color: var(--danger)">
+                <span>ค่าชดเชยลูกธนู ({{ lostArrows }} ลูก)</span>
+                <span class="font-mono font-medium">+฿{{ arrowsPrice }}</span>
+              </div>
+            </div>
+
+            <div class="pt-3" style="border-top: 1px solid var(--border)">
+              <span class="text-[11px] block mb-2 font-medium" style="color: var(--text-muted)">ช่องทางการชำระเงิน</span>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" @click="paymentMethod = 'PromptPay'" :class="['pay-btn', paymentMethod === 'PromptPay' ? 'pay-btn-active' : '']">สแกน QR (PromptPay)</button>
+                <button type="button" @click="paymentMethod = 'Cash'" :class="['pay-btn', paymentMethod === 'Cash' ? 'pay-btn-active' : '']">เงินสด (Cash)</button>
+              </div>
+            </div>
+
+            <div class="pt-4 flex items-baseline justify-between" style="border-top: 1px solid var(--border)">
+              <span class="text-xs font-medium" style="color: var(--text-muted)">ยอดชำระสุทธิ</span>
+              <span class="text-3xl font-black font-mono tracking-tight" style="color: var(--gold-bright)">฿{{ netTotal }}</span>
+            </div>
+
+            <div class="relative">
+              <transition name="arrow-pop">
+                <div v-if="showArrowFly" class="pointer-events-none absolute inset-x-0 -top-1 flex justify-center z-10">
+                  <span class="arrow-fly text-2xl">🎯</span>
+                </div>
+              </transition>
+              <button @click="handleCheckout" :disabled="!selectedPackage || isSubmitting" class="btn-primary w-full py-3.5 text-sm">
+                {{ isSubmitting ? 'กำลังบันทึก...' : 'บันทึกและชำระเงิน' }}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-    </main>
+      </main>
 
-    <!-- Modal: คิวจองวันนี้ -->
-    <transition name="fade-slide">
-      <div v-if="showBookingModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-[#0e0e0e] border border-[#262626] w-full max-w-lg rounded-sm p-5 space-y-4">
-          <div class="flex justify-between items-center pb-2 border-b border-[#262626]">
-            <h3 class="text-sm font-semibold text-white">คิวจองประจำวันนี้</h3>
-            <button @click="showBookingModal = false" class="text-[#767676] hover:text-white text-sm cursor-pointer">✕</button>
-          </div>
-          <div class="max-h-72 overflow-y-auto space-y-2.5 pr-1">
-            <div v-if="todayBookings.length === 0" class="text-center py-8 text-xs text-[#5a5a5a]">
-              ยังไม่มีรายการจองที่รอเข้าใช้บริการ
+      <!-- Modal: คิวจองวันนี้ -->
+      <transition name="fade-slide">
+        <div v-if="showBookingModal" class="fixed inset-0 flex items-center justify-center z-50 p-4 modal-backdrop">
+          <div class="panel panel-strong w-full max-w-lg p-5 space-y-4">
+            <div class="flex justify-between items-center pb-2" style="border-bottom: 1px solid var(--border)">
+              <h3 class="text-sm font-semibold" style="color: var(--text)">คิวจองประจำวันนี้</h3>
+              <button @click="showBookingModal = false" class="text-sm cursor-pointer" style="color: var(--text-muted)">✕</button>
             </div>
-            <div v-for="b in todayBookings" :key="b.id"
-              class="p-3.5 rounded-sm bg-[#161616] border border-[#333333] flex items-center justify-between hover:border-[#4a4a4a] transition-colors duration-200">
-              <div>
-                <span class="text-sm font-medium text-white block">{{ b.customer_name }} ({{ b.customer_phone }})</span>
-                <span class="text-xs text-[#9a9a9a] mt-0.5 block">รอบ: {{ b.round_time }} • {{ b.packages?.name || 'ไม่ระบุแพ็กเกจ' }}</span>
+            <div class="max-h-72 overflow-y-auto space-y-2.5 pr-1">
+              <div v-if="todayBookings.length === 0" class="text-center py-8 text-xs" style="color: var(--text-faint)">
+                ยังไม่มีรายการจองที่รอเข้าใช้บริการ
               </div>
-              <button @click="selectBookingItem(b)" class="bg-[#ffc93c] hover:bg-[#ffd75e] text-[#0a0a0a] text-xs font-semibold px-3 py-1.5 rounded-sm cursor-pointer transition-colors duration-200">เช็คอิน</button>
+              <div v-for="b in todayBookings" :key="b.id" class="p-3.5 rounded-sm flex items-center justify-between inset-surface">
+                <div>
+                  <span class="text-sm font-medium block" style="color: var(--text)">{{ b.customer_name }} ({{ b.customer_phone }})</span>
+                  <span class="text-xs mt-0.5 block" style="color: var(--text-muted)">รอบ: {{ b.round_time }} • {{ b.packages?.name || 'ไม่ระบุแพ็กเกจ' }}</span>
+                </div>
+                <button @click="selectBookingItem(b)" class="btn-primary text-xs font-semibold px-3 py-1.5">เช็คอิน</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </transition>
+      </transition>
 
-    <!-- Modal: ลงทะเบียน Walk-in -->
-    <transition name="fade-slide">
-      <div v-if="showRegisterModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="bg-[#0e0e0e] border border-[#262626] w-full max-w-sm rounded-sm p-5 space-y-4">
-          <div class="flex justify-between items-center pb-2 border-b border-[#262626]">
-            <h3 class="text-sm font-semibold text-white">ลงทะเบียนสมาชิกใหม่</h3>
-            <button @click="showRegisterModal = false" class="text-[#767676] hover:text-white text-sm cursor-pointer">✕</button>
+      <!-- Modal: ลงทะเบียน Walk-in -->
+      <transition name="fade-slide">
+        <div v-if="showRegisterModal" class="fixed inset-0 flex items-center justify-center z-50 p-4 modal-backdrop">
+          <div class="panel panel-strong w-full max-w-sm p-5 space-y-4">
+            <div class="flex justify-between items-center pb-2" style="border-bottom: 1px solid var(--border)">
+              <h3 class="text-sm font-semibold" style="color: var(--text)">ลงทะเบียนสมาชิกใหม่</h3>
+              <button @click="showRegisterModal = false" class="text-sm cursor-pointer" style="color: var(--text-muted)">✕</button>
+            </div>
+            <form @submit.prevent="handleRegisterWalkIn" class="space-y-3 text-xs">
+              <div>
+                <label class="block mb-1" style="color: var(--text-muted)">เบอร์โทรศัพท์</label>
+                <input v-model="newCustomerPhone" type="tel" required class="input-field w-full">
+              </div>
+              <div>
+                <label class="block mb-1" style="color: var(--text-muted)">ชื่อลูกค้า</label>
+                <input v-model="newCustomerName" type="text" placeholder="ระบุชื่อลูกค้า..." required class="input-field w-full">
+              </div>
+              <button type="submit" :disabled="registerLoading" class="btn-primary w-full py-2.5 mt-2 text-xs">
+                {{ registerLoading ? 'กำลังบันทึก...' : 'ยืนยันลงทะเบียน' }}
+              </button>
+            </form>
           </div>
-          <form @submit.prevent="handleRegisterWalkIn" class="space-y-3 text-xs">
-            <div>
-              <label class="block text-[#9a9a9a] mb-1">เบอร์โทรศัพท์</label>
-              <input v-model="newCustomerPhone" type="tel" required class="w-full bg-[#161616] border border-[#333333] focus:border-[#c9962b] focus:ring-2 focus:ring-[#c9962b]/20 text-white p-2.5 rounded-sm outline-none transition-all duration-200">
-            </div>
-            <div>
-              <label class="block text-[#9a9a9a] mb-1">ชื่อลูกค้า</label>
-              <input v-model="newCustomerName" type="text" placeholder="ระบุชื่อลูกค้า..." required class="w-full bg-[#161616] border border-[#333333] focus:border-[#c9962b] focus:ring-2 focus:ring-[#c9962b]/20 text-white p-2.5 rounded-sm outline-none transition-all duration-200">
-            </div>
-            <button type="submit" :disabled="registerLoading" class="w-full bg-[#ffc93c] hover:bg-[#ffd75e] text-[#0a0a0a] font-bold py-2.5 rounded-sm transition-colors duration-200 cursor-pointer mt-2 text-xs">
-              {{ registerLoading ? 'กำลังบันทึก...' : 'ยืนยันลงทะเบียน' }}
-            </button>
-          </form>
         </div>
-      </div>
-    </transition>
+      </transition>
 
+    </div>
   </div>
 </template>
 
 <style scoped>
-.arrow-fly {
-  display: inline-block;
-  animation: arrow-arc 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+/* ===== Theme tokens ===== */
+.app-root {
+  --bg: #0a0a0a;
+  --panel-bg: rgba(24, 24, 24, 0.55);
+  --panel-bg-strong: rgba(20, 20, 20, 0.7);
+  --inset-bg: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #ececec;
+  --text-soft: #cfcfcf;
+  --text-muted: #9a9a9a;
+  --text-faint: #6a6a6a;
+  --gold: #c9962b;
+  --gold-bright: #ffc93c;
+  --danger: #d98a6b;
+  --glow-color: 255, 201, 60;
+  --glow-opacity: 0.14;
+  background: var(--bg);
+  min-height: 100vh;
+  position: relative;
 }
+.app-root[data-theme="light"] {
+  --bg: #faf8f4;
+  --panel-bg: rgba(255, 255, 255, 0.55);
+  --panel-bg-strong: rgba(255, 255, 255, 0.75);
+  --inset-bg: rgba(0, 0, 0, 0.025);
+  --border: rgba(0, 0, 0, 0.08);
+  --text: #1c1a16;
+  --text-soft: #3a362e;
+  --text-muted: #7a7466;
+  --text-faint: #a39c8a;
+  --gold: #b8860b;
+  --gold-bright: #a5700a;
+  --danger: #b5533a;
+  --glow-color: 184, 134, 11;
+  --glow-opacity: 0.08;
+}
+
+/* ===== Ambient glow: สีเดียว, แทบไม่ขยับ ===== */
+.glow-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  background: radial-gradient(circle, rgba(var(--glow-color), var(--glow-opacity)) 0%, rgba(var(--glow-color), 0) 70%);
+  animation: drift 22s ease-in-out infinite;
+}
+.glow-a { width: 520px; height: 520px; top: -120px; left: -80px; }
+.glow-b { width: 460px; height: 460px; bottom: -140px; right: -60px; animation-delay: -11s; }
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, 15px) scale(1.06); }
+}
+
+/* ===== Grain ===== */
+.grain-layer {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ===== Surfaces ===== */
+.panel {
+  position: relative; z-index: 2;
+  background: var(--panel-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.panel-strong { background: var(--panel-bg-strong); }
+.inset-surface { background: var(--inset-bg); border: 1px solid var(--border); }
+.header-surface {
+  background: var(--panel-bg-strong);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  position: relative; z-index: 20;
+}
+.strip-surface { background: var(--inset-bg); border-bottom: 1px solid var(--border); position: relative; z-index: 15; }
+.status-pill { background: var(--inset-bg); border: 1px solid var(--border); color: var(--text-muted); }
+.modal-backdrop { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+
+.label-eyebrow { font-size: 11px; font-family: ui-monospace, monospace; color: var(--gold); letter-spacing: 0.12em; }
+
+/* ===== Buttons ===== */
+.btn-ghost {
+  border-radius: 6px; border: 1px solid var(--border); color: var(--text-soft);
+  background: var(--inset-bg); transition: border-color .2s, color .2s; cursor: pointer;
+}
+.btn-ghost:hover { border-color: var(--gold); color: var(--gold-bright); }
+.btn-primary {
+  background: var(--gold-bright); color: var(--bg); font-weight: 700; border-radius: 6px;
+  transition: transform .15s, filter .2s; cursor: pointer; border: none;
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-primary:active:not(:disabled) { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.theme-toggle {
+  width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); color: var(--text-muted); background: var(--inset-bg);
+  transition: border-color .2s, color .2s; cursor: pointer;
+}
+.theme-toggle:hover { border-color: var(--gold); color: var(--gold-bright); }
+
+.badge-count { background: var(--gold-bright); color: var(--bg); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 9999px; }
+
+/* ===== Inputs ===== */
+.input-field {
+  background: var(--inset-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; font-size: 14px; color: var(--text); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-field::placeholder { color: var(--text-faint); }
+.input-field:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(var(--glow-color), 0.15); }
+
+/* ===== Round slot chips ===== */
+.round-chip {
+  padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--inset-bg);
+  color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; cursor: pointer; transition: all .2s; position: relative;
+}
+.round-chip:hover { border-color: var(--text-faint); }
+.round-chip-active { border-color: var(--gold-bright); color: var(--gold-bright); background: rgba(var(--glow-color), 0.08); }
+.round-chip-active::after {
+  content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--gold-bright);
+}
+
+/* ===== Package cards ===== */
+.pkg-card {
+  padding: 16px; border-radius: 0 8px 8px 0; border: 1px solid var(--border); border-left: 3px solid transparent;
+  background: var(--inset-bg); cursor: pointer; transition: all .2s; display: flex; flex-direction: column; justify-content: space-between;
+}
+.pkg-card:hover { background: var(--panel-bg); }
+.pkg-card-active { border-left-color: var(--gold-bright); background: var(--panel-bg); }
+.pkg-check { width: 16px; height: 16px; border-radius: 9999px; background: var(--gold-bright); color: var(--bg); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+/* ===== Stepper ===== */
+.stepper-btn {
+  width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border); color: var(--text);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
+  background: transparent; cursor: pointer; transition: border-color .2s;
+}
+.stepper-btn:hover { border-color: var(--gold); }
+.stepper-input {
+  width: 48px; text-align: center; background: transparent; font-family: ui-monospace, monospace;
+  font-size: 14px; font-weight: 700; color: var(--text); outline: none; border: none;
+}
+.stepper-input:focus { color: var(--gold-bright); }
+.stepper-input::-webkit-outer-spin-button, .stepper-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ===== Pay method ===== */
+.pay-btn { padding: 10px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border); color: var(--text-muted); background: transparent; cursor: pointer; transition: all .2s; }
+.pay-btn-active { border-color: var(--gold-bright); color: var(--gold-bright); background: rgba(var(--glow-color), 0.08); }
+
+/* ===== Progress ===== */
+.progress-track { width: 100%; background: var(--inset-bg); height: 4px; border-radius: 9999px; overflow: hidden; }
+.progress-fill { background: var(--gold); height: 100%; border-radius: 9999px; transition: width .5s; }
+
+/* ===== Reticle corners on bill panel ===== */
+.corner { position: absolute; width: 12px; height: 12px; border-color: rgba(var(--glow-color), 0.5); }
+.corner-tl { top: 12px; left: 12px; border-top: 1px solid; border-left: 1px solid; }
+.corner-tr { top: 12px; right: 12px; border-top: 1px solid; border-right: 1px solid; }
+.corner-bl { bottom: 12px; left: 12px; border-bottom: 1px solid; border-left: 1px solid; }
+.corner-br { bottom: 12px; right: 12px; border-bottom: 1px solid; border-right: 1px solid; }
+
+/* ===== Animations ===== */
+.arrow-fly { display: inline-block; animation: arrow-arc 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 @keyframes arrow-arc {
-  0%   { transform: translateY(0) rotate(-50deg); opacity: 0; }
-  15%  { opacity: 1; }
-  50%  { transform: translateY(-42px) rotate(0deg); }
+  0% { transform: translateY(0) rotate(-50deg); opacity: 0; }
+  15% { opacity: 1; }
+  50% { transform: translateY(-42px) rotate(0deg); }
   100% { transform: translateY(6px) rotate(35deg); opacity: 0; }
 }
-
-.fade-slide-enter-active, .fade-slide-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.fade-slide-enter-from, .fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
-.arrow-pop-enter-active { transition: none; }
-.arrow-pop-leave-active { transition: opacity 0.3s ease; }
+.fade-slide-enter-active, .fade-slide-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-4px); }
+.arrow-pop-leave-active { transition: opacity .3s ease; }
 .arrow-pop-leave-to { opacity: 0; }
 </style>
