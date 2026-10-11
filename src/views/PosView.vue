@@ -7,10 +7,8 @@ const router = useRouter()
 
 // ---------- Theme ----------
 const theme = ref('dark')
-const toggleTheme = () => {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark'
-  localStorage.setItem('mha-theme', theme.value)
-}
+localStorage.setItem('mha-theme', 'dark')
+
 
 // ---------- Store Status (เปิด-ปิดสนาม) ----------
 const isStoreOpen = ref(localStorage.getItem('mha-store-open') !== 'false')
@@ -328,15 +326,7 @@ onMounted(() => {
             <span class="sm:hidden">{{ isStoreOpen ? 'เปิด' : 'ปิด' }}</span>
           </button>
 
-          <!-- สลับธีม -->
-          <button @click="toggleTheme" class="theme-toggle shrink-0" :aria-label="theme === 'dark' ? 'สลับเป็นโหมดสว่าง' : 'สลับเป็นโหมดมืด'">
-            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/>
-            </svg>
-          </button>
+          
 
           <!-- ไป Dashboard -->
           <button @click="router.push('/dashboard')" class="btn-ghost flex items-center gap-1 px-2 sm:px-3 py-1.5 text-xs font-semibold shrink-0" title="แดชบอร์ดสรุปยอด">
@@ -759,7 +749,15 @@ onMounted(() => {
   flex-direction: column; justify-content: space-between;
 }
 .pkg-card:hover { border-color: var(--text-muted); background: #222222; }
-.pkg-card-active { border-color: var(--gold-bright); background: rgba(255, 215, 0, 0.08); }
+.pkg-card-active { 
+  border-color: var(--gold-bright) !important; 
+  background: rgba(255, 215, 0, 0.08) !important; 
+}
+.pkg-card-active h4,
+.pkg-card-active p,
+.pkg-card-active span {
+  color: #f5f5f0 !important; /* บังคับให้ตัวหนังสือในการ์ดที่เลือกสว่างชัดเสมอ */
+}
 
 .pkg-check { width: 16px; height: 16px; border-radius: 9999px; background: var(--gold-bright); color: #121212; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
 
