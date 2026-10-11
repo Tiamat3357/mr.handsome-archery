@@ -4,7 +4,7 @@
   เนื้อหาใน <body> ถูกย้ายเข้า <template> แบบ verbatim (ไม่จัดรูปแบบใหม่)
 -->
 <template>
-  <div class="light font-body-md text-on-surface antialiased" lang="th">
+  <div class="theme-light mrhs-page font-body-md text-on-surface antialiased min-h-screen" lang="th">
 <!-- TopNavBar -->
 <nav class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-20 sticky top-0 z-50 bg-secondary/95 backdrop-blur-sm border-b border-outline-variant dark:border-outline flat no shadows docked full-width top-0">
 <div class="flex items-center gap-sm">
