@@ -12,22 +12,26 @@ import MyBookingsView from '../views/MyBookingsView.vue'
 import LoginView from '../views/LoginView.vue'
 import PosView from '../views/PosView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import HomeView from '../views/HomeView.vue'
+import ScheduleView from '../views/ScheduleView.vue'
+import BookingView from '../views/BookingView.vue'
+import BookingConfirmView from '../views/BookingConfirmView.vue'
+import ReceiptView from '../views/ReceiptView.vue'
+import MyBookingsView from '../views/MyBookingsView.vue'
+import EquipmentView from '../views/EquipmentView.vue'
 
 const routes = [
-  // 🎯 ดักจับทั้ง path ปกติ และ path .html ของเพื่อน
-  { path: '/', alias: ['/index.html'], name: 'home', component: HomeView },
-  { path: '/schedule', alias: ['/schedule.html'], name: 'schedule', component: ScheduleView },
-  { path: '/booking', alias: ['/booking.html'], name: 'booking', component: BookingView },
-  { path: '/booking-confirm', alias: ['/booking-confirm.html'], name: 'booking-confirm', component: BookingConfirmView },
-  { path: '/equipment', alias: ['/equipment.html'], name: 'equipment', component: EquipmentView },
-  { path: '/my-bookings', alias: ['/my-bookings.html'], name: 'my-bookings', component: MyBookingsView },
-  { path: '/receipt', alias: ['/receipt.html'], name: 'receipt', component: ReceiptView },
-  { path: '/shop-qr', alias: ['/shop-qr.html'], name: 'shop-qr', component: ShopQrView },
-
-  // 🔒 ฝั่งหลังบ้าน POS
+{ path: '/', name: 'home', component: HomeView, alias: ['/index.html'] },
+  { path: '/schedule', name: 'schedule', component: ScheduleView, alias: ['/schedule.html'] },
+  { path: '/booking', name: 'booking', component: BookingView, alias: ['/booking.html'] },
+  { path: '/booking-confirm', name: 'booking-confirm', component: BookingConfirmView, alias: ['/booking-confirm.html'] },
+  { path: '/receipt', name: 'receipt', component: ReceiptView, alias: ['/receipt.html'] },
+  { path: '/my-bookings', name: 'my-bookings', component: MyBookingsView, alias: ['/my-bookings.html'] },
+  { path: '/equipment', name: 'equipment', component: EquipmentView, alias: ['/equipment.html'] },
+  { path: '/pos', name: 'pos', component: PosView },
+  { path: '/dashboard', name: 'dashboard', component: DashboardView },
   { path: '/login', name: 'login', component: LoginView },
-  { path: '/pos', name: 'pos', component: PosView, meta: { requiresAuth: true } },
-  { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } }
+  { path: '/customers', redirect: '/' }
 ]
 
 const router = createRouter({
