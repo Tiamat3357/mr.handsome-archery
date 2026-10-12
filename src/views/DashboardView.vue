@@ -1,3 +1,7 @@
+<!--
+  src/views/DashboardView.vue
+  ศูนย์วิเคราะห์ข้อมูล & แดชบอร์ดสรุปยอดขาย (เชื่อมยอดขาย POS จาก localStorage + Supabase)
+-->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -20,23 +24,63 @@ const roundSlots = [
   { time: '17:30 - 18:30', label: 'เย็น 2' }
 ]
 
+// ดึงข้อมูลทั้งจาก localStorage (POS ยอดสด) และ Supabase service_logs
 const fetchLogs = async () => {
   loading.value = true
+  const mergedList = []
+
+  // 1. ดึงจาก localStorage (บิลที่เพิ่งตัดจากหน้า POS)
+  try {
+    const localSales = JSON.parse(localStorage.getItem('mrhs_sales') || '[]')
+    localSales.forEach(item => {
+      mergedList.push({
+        id: item.id,
+        created_at: item.timestamp || new Date().toISOString(),
+        round_time: item.roundTime || 'บริการเสริม',
+        total_amount: Number(item.totalAmount || 0),
+        additional_targets: Number(item.additionalTargets || 0),
+        lost_arrows: Number(item.lostArrows || 0),
+        payment_method: item.paymentMethod || 'PromptPay',
+        packages: {
+          name: item.packageName || 'แพ็กเกจทั่วไป',
+          price: Number(item.totalAmount || 0)
+        },
+        customers: {
+          name: item.customerName || 'ลูกค้าทั่วไป (Walk-in)',
+          phone: item.customerPhone || '-'
+        },
+        source: 'local'
+      })
+    })
+  } catch (e) {
+    console.error('Local sales parse error:', e)
+  }
+
+  // 2. ดึงจาก Supabase (ถ้ามีข้อมูลในตาราง service_logs)
   try {
     const { data, error } = await supabase
       .from('service_logs')
       .select('*, packages(*), customers(*)')
       .order('created_at', { ascending: false })
-    if (error) throw error
-    logs.value = data || []
+
+    if (!error && data && data.length > 0) {
+      data.forEach(dbItem => {
+        if (!mergedList.some(m => m.id === dbItem.id)) {
+          mergedList.push(dbItem)
+        }
+      })
+    }
   } catch (err) {
-    console.error('Error loading service logs:', err.message)
-  } finally {
-    loading.value = false
+    console.warn('Supabase service_logs:', err.message)
   }
+
+  // จัดเรียงรายการจากล่าสุดไปเก่าสุด
+  mergedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  logs.value = mergedList
+  loading.value = false
 }
 
-// กรองข้อมูลตามตัวเลือก
+// กรองข้อมูลตามตัวเลือก วันนี้ / ทั้งหมด
 const filteredLogs = computed(() => {
   if (dateFilter.value === 'all') return logs.value
   return logs.value.filter(log => {
@@ -80,12 +124,17 @@ const cashTotal = computed(() => {
 const peakHourStats = computed(() => {
   const counts = {}
   roundSlots.forEach(s => { counts[s.time] = 0 })
+
   filteredLogs.value.forEach(log => {
-    if (counts[log.round_time] !== undefined) {
-      counts[log.round_time]++
+    const rawTime = (log.round_time || '').replace(' น.', '').trim()
+    const matchedSlot = roundSlots.find(s => s.time.includes(rawTime) || rawTime.includes(s.time))
+    if (matchedSlot) {
+      counts[matchedSlot.time]++
     }
   })
+
   const maxVal = Math.max(...Object.values(counts), 1)
+
   return roundSlots.map(slot => {
     const count = counts[slot.time] || 0
     return {
@@ -112,8 +161,8 @@ const occupancyRate = computed(() => {
 const packageStats = computed(() => {
   const statsMap = {}
   filteredLogs.value.forEach(log => {
-    const name = log.packages?.name || 'ทั่วไป'
-    const price = Number(log.packages?.price || 0)
+    const name = log.packages?.name || 'แพ็กเกจทั่วไป'
+    const price = Number(log.total_amount || 0)
     if (!statsMap[name]) statsMap[name] = { name, count: 0, revenue: 0 }
     statsMap[name].count += 1
     statsMap[name].revenue += price
@@ -146,19 +195,21 @@ onMounted(() => {
     <div class="grain-layer" aria-hidden="true"></div>
 
     <div class="min-h-screen relative font-sans text-[#f5f5f0]">
-      <!-- Top Navigation (Mobile-First) -->
+      <!-- Top Navigation -->
       <header class="min-h-14 py-2 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 header-surface gap-2">
         <div class="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-          <svg viewBox="0 0 40 40" class="w-7 h-7 sm:w-8 sm:h-8 shrink-0">
-            <circle cx="20" cy="20" r="18" fill="none" stroke="var(--gold)" stroke-width="1.5"/>
-            <circle cx="20" cy="20" r="11" fill="none" stroke="var(--gold)" stroke-width="1.5"/>
-            <circle cx="20" cy="20" r="3" fill="var(--gold-bright)"/>
-          </svg>
+          <!-- โค้ดใหม่: ใส่รูป Logo.jpg พร้อมตัดขอบกลมเนียนๆ -->
+<img
+  src="/Logo.jpg"
+  @error="(e) => e.target.src = '/logo.jpg'"
+  alt="MR.HANDSOME"
+  class="w-8 h-8 rounded-full object-cover shrink-0 border border-[#ffd700]/40 shadow-sm"
+/>
           <div class="min-w-0">
             <h1 class="text-xs sm:text-sm font-bold tracking-[0.06em] text-[#f5f5f0] truncate">
               MR. HANDSOME
             </h1>
-            <p class="text-[10px] sm:text-[11px] font-mono text-[#999995] truncate hidden xs:block sm:block">
+            <p class="text-[10px] sm:text-[11px] font-mono text-[#999995] truncate hidden sm:block">
               ศูนย์วิเคราะห์ข้อมูล & สรุปยอด
             </p>
           </div>
@@ -166,15 +217,17 @@ onMounted(() => {
 
         <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
+            type="button"
             @click="router.push('/pos')"
-            class="btn-ghost flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-medium cursor-pointer"
+            class="btn-ghost flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold cursor-pointer"
             title="กลับไปหน้าเคาน์เตอร์ POS"
           >
-            <span class="material-symbols-outlined text-[16px]">point_of_sale</span>
+            <span class="material-symbols-outlined text-[16px] text-[#ffd700]">point_of_sale</span>
             <span class="hidden sm:inline">เคาน์เตอร์ POS</span>
           </button>
 
           <button
+            type="button"
             @click="fetchLogs"
             :disabled="loading"
             class="btn-ghost px-2.5 sm:px-3 py-1.5 text-xs font-mono cursor-pointer flex items-center gap-1"
@@ -186,7 +239,7 @@ onMounted(() => {
         </div>
       </header>
 
-      <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
+      <main class="max-w-[1240px] mx-auto p-3 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
         <!-- Filter & Control Bar -->
         <div class="panel p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div>
@@ -200,18 +253,20 @@ onMounted(() => {
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <div class="inline-flex rounded-lg border border-[var(--border)] bg-[var(--inset-bg)] p-0.5 text-xs">
+            <div class="inline-flex rounded-xl border border-[var(--border)] bg-[var(--inset-bg)] p-1 text-xs">
               <button
+                type="button"
                 @click="dateFilter = 'today'"
                 :class="dateFilter === 'today' ? 'bg-[var(--gold-bright)] text-[#121212] font-bold' : 'text-[#999995] hover:text-white'"
-                class="px-2.5 sm:px-3 py-1.5 rounded-md transition-all duration-200 cursor-pointer text-xs"
+                class="px-3 py-1 rounded-lg transition-all cursor-pointer text-xs"
               >
                 วันนี้
               </button>
               <button
+                type="button"
                 @click="dateFilter = 'all'"
                 :class="dateFilter === 'all' ? 'bg-[var(--gold-bright)] text-[#121212] font-bold' : 'text-[#999995] hover:text-white'"
-                class="px-2.5 sm:px-3 py-1.5 rounded-md transition-all duration-200 cursor-pointer text-xs"
+                class="px-3 py-1 rounded-lg transition-all cursor-pointer text-xs"
               >
                 ทั้งหมด
               </button>
@@ -222,7 +277,7 @@ onMounted(() => {
               type="date"
               v-model="selectedDate"
               class="input-field text-xs py-1.5 px-2.5 font-mono cursor-pointer"
-            >
+            />
           </div>
         </div>
 
@@ -241,7 +296,9 @@ onMounted(() => {
             </div>
             <p class="text-[11px] text-[#999995] font-mono mt-2 flex items-center justify-between">
               <span>เฉลี่ยต่อบิล:</span>
-              <span class="text-[#d0d0ca]">฿{{ totalSessions > 0 ? Math.round(totalRevenue / totalSessions).toLocaleString('th-TH') : 0 }}</span>
+              <span class="text-[#d0d0ca]">
+                ฿{{ totalSessions > 0 ? Math.round(totalRevenue / totalSessions).toLocaleString('th-TH') : 0 }}
+              </span>
             </p>
           </div>
 
@@ -250,7 +307,7 @@ onMounted(() => {
             <span class="label-eyebrow">TOTAL SESSIONS</span>
             <div class="mt-3 sm:mt-4 flex items-baseline gap-2">
               <span class="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">{{ totalSessions }}</span>
-              <span class="text-xs text-[#999995]">รอบยิง</span>
+              <span class="text-xs text-[#999995]">รอบยิง / บิล</span>
             </div>
             <p class="text-[11px] text-[#999995] font-mono mt-2 flex items-center justify-between">
               <span>สถานะสนาม:</span>
@@ -382,6 +439,7 @@ onMounted(() => {
             </div>
             <span class="text-xs font-mono text-[var(--gold-bright)] font-bold">{{ filteredLogs.length }} รายการ</span>
           </div>
+
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs min-w-[640px]">
               <thead class="bg-[var(--inset-bg)] border-b border-[var(--border)] text-[#999995] font-mono">
@@ -477,15 +535,9 @@ onMounted(() => {
   border-radius: 9999px;
   filter: blur(90px);
   background: radial-gradient(circle, rgba(var(--glow-color), var(--glow-opacity)) 0%, rgba(var(--glow-color), 0) 70%);
-  animation: drift 22s ease-in-out infinite;
 }
 .glow-a { width: 480px; height: 480px; top: -100px; left: -60px; }
-.glow-b { width: 420px; height: 420px; bottom: -120px; right: -50px; animation-delay: -11s; }
-
-@keyframes drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(20px, 15px) scale(1.06); }
-}
+.glow-b { width: 420px; height: 420px; bottom: -120px; right: -50px; }
 
 .grain-layer {
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
@@ -502,12 +554,14 @@ onMounted(() => {
   border-radius: 12px;
 }
 .panel-strong { background: var(--panel-bg-strong); }
+
 .header-surface {
   background: var(--panel-bg-strong);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
   position: relative; z-index: 20;
 }
+
 .label-eyebrow { font-size: 11px; font-family: ui-monospace, monospace; color: var(--gold); letter-spacing: 0.1em; font-weight: 700; }
 
 .btn-ghost {

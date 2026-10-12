@@ -1,464 +1,429 @@
 <!--
-  ถูกแยกออกมาจาก src/views/CustomerView.vue (หน้า 2/8)
-  ต้นฉบับเดิม: booking-confirm.html   |   ตรวจสอบและยืนยันการจอง
-  เนื้อหาใน <body> ถูกย้ายเข้า <template> แบบ verbatim (ไม่จัดรูปแบบใหม่)
+  src/views/BookingConfirmView.vue
+  ขั้นตอนที่ 3: ตรวจสอบและยืนยันการจอง (MR.HANDSOME Tactical Reservation)
+  - ลบ Navbar ที่ซ้อนออก (ใช้ Navbar กลางตัวเดียว)
+  - บันทึกข้อมูลมือที่ถนัด (ซ้าย/ขวา) และคำขอพิเศษ (Note) ลงระบบส่งต่อไปยังเคาน์เตอร์ POS
+  - บันทึกเบอร์โทรล่าสุดลง localStorage เพื่อให้หน้าบัตรจองเปิดดูได้อัตโนมัติ
 -->
-<template>
-  <div class="bg-surface font-body-md text-body-md text-on-surface antialiased" lang="th">
-<header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-margin-mobile md:px-margin-desktop flex items-center justify-between gap-base"><div class="flex items-center gap-sm"><a href="/"><span class="font-headline-md text-headline-md text-on-surface uppercase tracking-wider inline-block">MR.HANDSOME</span></a></div><nav class="hidden md:flex items-center gap-md" data-active-classes="bg-primary-container text-on-primary-container font-label-md text-label-md rounded-lg px-sm py-xs"><a class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md uppercase tracking-wider transition-colors" data-path="services" href="/#services">บริการ</a><a aria-current="page" class="uppercase tracking-wider transition-colors bg-primary-container text-on-primary-container font-label-md text-label-md rounded-lg px-sm py-xs" data-path="booking" href="/schedule">การจอง</a><a class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md uppercase tracking-wider transition-colors" data-path="gear" href="/equipment">อุปกรณ์</a><a class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md uppercase tracking-wider transition-colors" href="/my-bookings">บัตรจอง</a></nav></div></header><main class="w-full pt-16 bg-surface min-h-[calc(100vh-16rem)]"><div class="flex flex-col w-full">
-<!-- Top Stepper / Process Navigation Bar -->
-<section class="w-full bg-surface-container-lowest shadow-sm py-sm md:py-md">
-<div class="w-full px-margin-mobile md:px-margin-desktop">
-<div class="max-w-5xl mx-auto">
-<!-- Responsive Grid for Steps -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-sm items-center relative">
-<!-- Step 1: Completed -->
-<div class="flex items-center gap-sm group">
-<div class="w-10 h-10 rounded-full bg-inverse-surface text-inverse-on-surface flex items-center justify-center font-label-md text-label-md shrink-0 shadow-sm">
-<span class="material-symbols-outlined text-[20px]">check</span>
-</div>
-<div class="flex flex-col min-w-0">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">ขั้นตอนที่ 1</span>
-<span class="font-label-md text-label-md text-on-surface truncate">เลือกวันและรอบเวลา</span>
-</div>
-</div>
-<!-- Step 2: Completed -->
-<div class="flex items-center gap-sm group">
-<a class="flex items-center gap-sm min-w-0 hover:opacity-80 transition-opacity" href="/booking">
-<div class="w-10 h-10 rounded-full bg-inverse-surface text-inverse-on-surface flex items-center justify-center font-label-md text-label-md shrink-0 shadow-sm">
-<span class="material-symbols-outlined text-[20px]">check</span>
-</div>
-<div class="flex flex-col min-w-0">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">ขั้นตอนที่ 2</span>
-<span class="font-label-md text-label-md text-on-surface truncate">ข้อมูลผู้จอง &amp; อุปกรณ์</span>
-</div>
-</a>
-</div>
-<!-- Step 3: Active Current Step -->
-<div class="flex items-center gap-sm p-xs rounded-xl bg-primary-container/15">
-<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline-md text-headline-md shrink-0 shadow-sm ring-4 ring-primary-container/20">
-<span class="material-symbols-outlined text-[20px] font-bold">verified</span>
-</div>
-<div class="flex flex-col min-w-0">
-<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider">กำลังดำเนินการ</span>
-<span class="font-label-md text-label-md text-on-surface font-bold truncate">3. ยืนยันการจอง</span>
-</div>
-</div>
-<!-- Step 4: Upcoming Step -->
-<div class="flex items-center gap-sm opacity-45">
-<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center font-label-md text-label-md shrink-0">
-<span class="font-label-md text-label-md">04</span>
-</div>
-<div class="flex flex-col min-w-0">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">ขั้นตอนถัดไป</span>
-<span class="font-label-md text-label-md text-on-surface-variant truncate">บันทึก E-Ticket</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- Main Booking Review Workspace -->
-<section class="w-full px-margin-mobile md:px-margin-desktop py-md md:py-lg">
-<div class="max-w-6xl mx-auto">
-<!-- Page Header & Tactical Visual Badge -->
-<div class="mb-md md:mb-lg flex flex-col md:flex-row md:items-end justify-between gap-base">
-<div class="space-y-xs max-w-2xl">
-<div class="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm tracking-wider">
-<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-<span>TACTICAL RANGE RESERVATION • FINAL STEP</span>
-</div>
-<h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight">ตรวจสอบและยืนยันการจอง</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">กรุณาตรวจสอบข้อมูลการจอง รายละเอียดอุปกรณ์ และยอดชำระเงินให้ถูกต้องก่อนกดยืนยันการเข้าใช้บริการ</p>
-</div>
-<div class="hidden md:flex items-center gap-xs text-on-surface-variant font-label-sm text-label-sm bg-surface-container-low px-sm py-base rounded-lg">
-<span class="material-symbols-outlined text-[18px] text-primary">encrypted</span>
-<span>ระบบรักษาความปลอดภัยความเร็วสูง 256-bit SSL</span>
-</div>
-</div>
-<!-- Content Split Grid (8 cols Review vs 4 cols Sticky Summary) -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-md md:gap-gutter items-start">
-<!-- Left Column: Detailed Modules (7 Cols) -->
-<div class="lg:col-span-7 flex flex-col gap-md">
-<!-- Card 1: User & Equipment Profile -->
-<div class="bg-surface-container-lowest rounded-2xl p-md md:p-lg shadow-sm relative overflow-hidden">
-<!-- Background Target Watermark Accent -->
-<svg class="absolute -right-12 -bottom-12 w-48 h-48 opacity-[0.03] text-on-surface pointer-events-none" fill="none" stroke="currentColor" stroke-width="3" viewbox="0 0 100 100">
-<circle cx="50" cy="50" r="45"></circle>
-<circle cx="50" cy="50" r="32"></circle>
-<circle cx="50" cy="50" r="18"></circle>
-<circle cx="50" cy="50" fill="currentColor" r="6"></circle>
-<line x1="0" x2="100" y1="50" y2="50"></line>
-<line x1="50" x2="50" y1="0" y2="100"></line>
-</svg>
-<!-- Card Header -->
-<div class="flex items-center justify-between pb-sm mb-md bg-surface-container-low -mx-md -mt-md md:-mx-lg md:-mt-lg p-md md:px-lg rounded-t-2xl">
-<div class="flex items-center gap-sm">
-<div class="w-9 h-9 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-center shadow-sm">
-<span class="material-symbols-outlined text-[20px] text-primary">badge</span>
-</div>
-<div>
-<h2 class="font-headline-md text-headline-md text-on-surface">ข้อมูลผู้ใช้บริการ &amp; อุปกรณ์</h2>
-<p class="font-label-sm text-label-sm text-on-surface-variant">ข้อมูลได้รับการยืนยันความถูกต้องเรียบร้อยแล้ว</p>
-</div>
-</div>
-<a class="inline-flex items-center gap-xs font-label-md text-label-md text-primary hover:text-on-primary-container px-sm py-xs rounded-lg hover:bg-surface-container transition-colors" href="/booking">
-<span class="material-symbols-outlined text-[16px]">edit_note</span>
-<span>แก้ไขข้อมูล</span>
-</a>
-</div>
-<!-- Profile Details Grid -->
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-base md:gap-md">
-<div class="p-sm rounded-xl bg-surface-container-low flex flex-col justify-between">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">ชื่อ-นามสกุล ผู้จอง</span>
-<span class="font-body-lg text-body-lg text-on-surface font-semibold mt-xs" id="reviewName">—</span>
-</div>
-<div class="p-sm rounded-xl bg-surface-container-low flex flex-col justify-between">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">เบอร์โทรศัพท์ติดต่อ</span>
-<div class="flex items-center gap-xs mt-xs">
-<span class="font-body-lg text-body-lg text-on-surface font-semibold" id="reviewPhone">—</span>
-<span class="inline-flex items-center gap-xs px-xs py-0.5 rounded-full bg-primary-container/20 text-on-primary-container font-label-sm text-label-sm font-semibold">
-<span class="material-symbols-outlined text-[14px]">check_circle</span>
-<span>ยืนยันแล้ว</span>
-</span>
-</div>
-</div>
-<div class="p-sm rounded-xl bg-surface-container-low sm:col-span-2 flex flex-col">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">ระดับทักษะ &amp; โค้ช</span>
-<div class="flex items-center gap-xs mt-xs">
-<span class="material-symbols-outlined text-[18px] text-primary">sports_score</span>
-<span class="font-body-md text-body-md text-on-surface font-semibold">มือใหม่ / ครั้งแรก (โค้ช 15 นาที)</span>
-</div>
-</div>
-<div class="p-sm rounded-xl bg-surface-container-low sm:col-span-2 flex flex-col">
-<div class="flex items-center justify-between mb-xs">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">ชุดอุปกรณ์ที่จัดเตรียม</span>
-<span class="font-label-sm text-label-sm font-semibold text-primary bg-primary-container/15 px-sm py-xs rounded">มือขวา (Right-Hand)</span>
-</div>
-<div class="flex items-start gap-sm mt-xs">
-<span class="material-symbols-outlined text-[24px] text-on-surface-variant shrink-0 mt-0.5">stream_apps</span>
-<div>
-<span class="font-body-md text-body-md font-semibold text-on-surface">อุปกรณ์มาตรฐานสนาม: Olympic Recurve พร้อมศูนย์เล็ง</span>
-<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">รวมลูกธนูคาร์บอน 12 ลูก, Finger Tab รองนิ้ว, Arm Guard ป้องกันแขน และขาตั้งคันธนูครบชุด</p>
-</div>
-</div>
-</div>
-<div class="p-sm rounded-xl bg-surface-container-low sm:col-span-2 flex items-start gap-sm">
-<span class="material-symbols-outlined text-[20px] text-on-surface-variant shrink-0 mt-0.5">chat</span>
-<div>
-<span class="font-label-sm text-label-sm text-on-surface-variant block">หมายเหตุและคำขอเพิ่มเติม:</span>
-<p class="font-body-md text-body-md text-on-surface italic mt-0.5">“ต้องการให้เน้นการสอนท่าจับสายและท่ายืนที่ถูกต้องสำหรับผู้เริ่มต้น เพื่อความปลอดภัยสูงสุด”</p>
-</div>
-</div>
-</div>
-</div>
-<!-- Card 2: Payment Selector -->
-<div class="bg-surface-container-lowest rounded-2xl p-md md:p-lg shadow-sm">
-<div class="flex items-center gap-sm pb-sm mb-md bg-surface-container-low -mx-md -mt-md md:-mx-lg md:-mt-lg p-md md:px-lg rounded-t-2xl">
-<div class="w-9 h-9 rounded-lg bg-surface-container-lowest text-on-surface flex items-center justify-center shadow-sm">
-<span class="material-symbols-outlined text-[20px] text-primary">payments</span>
-</div>
-<div>
-<h2 class="font-headline-md text-headline-md text-on-surface">เลือกช่องทางชำระเงิน</h2>
-<p class="font-label-sm text-label-sm text-on-surface-variant">กรุณาเลือกช่องทางที่คุณสะดวกทำรายการเพื่อรับสิทธิการเข้ายิง</p>
-</div>
-</div>
-<!-- Payment Options -->
-<div class="flex flex-col gap-sm" id="paymentSelector">
-<!-- Option 1: QR PromptPay (Selected Active State) -->
-<label class="relative flex items-center justify-between p-md rounded-xl bg-surface-container-low cursor-pointer shadow-sm ring-2 ring-primary-container transition-all hover:bg-surface-container">
-<div class="flex items-center gap-md">
-<input checked="" class="w-5 h-5 accent-primary-container text-on-primary-container cursor-pointer" name="payment_method" type="radio" value="promptpay"/>
-<div class="w-12 h-12 rounded-xl bg-surface-container-lowest p-xs flex items-center justify-center shadow-sm shrink-0">
-<span class="material-symbols-outlined text-[28px] text-primary">qr_code_scanner</span>
-</div>
-<div>
-<div class="flex items-center gap-xs">
-<span class="font-body-lg text-body-lg font-bold text-on-surface">สแกน QR PromptPay / Mobile Banking</span>
-<span class="font-label-sm text-label-sm px-xs py-0.5 rounded bg-primary-container text-on-primary-container font-bold">แนะนำ</span>
-</div>
-<p class="font-label-sm text-label-sm text-on-surface-variant mt-xs">ออก QR Code ทันที อัปเดตสถานะอัตโนมัติ ไม่ต้องส่งสลิป</p>
-</div>
-</div>
-<div class="hidden sm:flex flex-col items-end">
-<span class="font-label-sm text-label-sm text-primary font-bold">ฟรีค่าธรรมเนียม</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant">ปลอดภัย 100%</span>
-</div>
-</label>
-<!-- Option 2: Pay at Counter -->
-<label class="relative flex items-center justify-between p-md rounded-xl bg-surface-container-low cursor-pointer transition-all hover:bg-surface-container">
-<div class="flex items-center gap-md">
-<input class="w-5 h-5 accent-primary-container text-on-primary-container cursor-pointer" name="payment_method" type="radio" value="counter"/>
-<div class="w-12 h-12 rounded-xl bg-surface-container-lowest p-xs flex items-center justify-center shadow-sm shrink-0">
-<span class="material-symbols-outlined text-[28px] text-on-surface-variant">storefront</span>
-</div>
-<div>
-<span class="font-body-lg text-body-lg font-bold text-on-surface">ชำระเงินสดหรือบัตรเครดิตที่เคาน์เตอร์สนาม</span>
-<p class="font-label-sm text-label-sm text-on-surface-variant mt-xs">ชำระเงินจริงก่อนเวลาเริ่มยิง 15 นาที ณ ประชาสัมพันธ์สนามยิงธนู</p>
-</div>
-</div>
-<div class="hidden sm:flex flex-col items-end">
-<span class="font-label-sm text-label-sm text-on-surface-variant">เงินสด / บัตรเครดิต</span>
-</div>
-</label>
-</div>
-<!-- Policy Assurance Notice -->
-<div class="mt-md p-sm rounded-xl bg-surface-container-low flex items-center gap-sm">
-<span class="material-symbols-outlined text-[22px] text-primary shrink-0">shield_lock</span>
-<p class="font-label-sm text-label-sm text-on-surface-variant">
-<strong class="text-on-surface">การันตีความยืดหยุ่น:</strong> ท่านสามารถยกเลิก เลื่อนวัน หรือเปลี่ยนแปลงเวลาฝึกซ้อมได้ฟรีล่วงหน้า 24 ชั่วโมง โดยติดต่อเจ้าหน้าที่สนามที่ประชาสัมพันธ์
-              </p>
-</div>
-</div>
-</div>
-<!-- Right Column: Order Summary & Confirmation Action (5 Cols) -->
-<div class="lg:col-span-5 flex flex-col gap-md lg:sticky lg:top-20">
-<div class="bg-surface-container-lowest rounded-2xl p-md md:p-lg shadow-md relative overflow-hidden">
-<!-- Tactical Top Indicator -->
-<div class="h-2 w-full bg-primary-container absolute top-0 left-0 right-0"></div>
-<!-- Card Heading & Tag -->
-<div class="flex items-center justify-between pb-sm mb-md">
-<div class="flex flex-col">
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">BOOKING SUMMARY</span>
-<h3 class="font-headline-md text-headline-md text-on-surface">สรุปรายละเอียดการจอง</h3>
-</div>
-<span class="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-semibold shadow-sm">
-<span class="w-2 h-2 rounded-full bg-primary-container"></span>
-<span>รอยืนยันการจอง</span>
-</span>
-</div>
-<!-- Target Range Snapshot Visual -->
-<div class="relative rounded-xl overflow-hidden mb-md aspect-[16/9] shadow-sm">
-<img class="w-full h-full object-cover" data-alt="Modern indoor archery range with high contrast warm lights, Olympic recurve targets with yellow bullseye circles at 18 meters distance, clean tactical architecture, charcoal grey walls and athletic sports vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuARIjzsihuBdBnyabS6HFwPLbhuGNECtgNfsFjPaDJpkBIWmU70RuNf2JQJbH5dniOf0CphUfO8AJPprx2kdCb00uqMlK2K5PDyFRgglJ6oQG-6543UW9uYmzeR2NcBqcnpLyF3C8_31NDcpAuQxByVIK303jzmD1XlwczPBZ1irPo_MJywGgPXRS6i7yq0uSNLm88S6EGVUfTpjq5pCXeWskjwy0BvslEu9uedjNOc5I7Uo9Ma7zHPiA"/>
-<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/90 via-inverse-surface/30 to-transparent flex flex-col justify-end p-sm">
-<span class="font-label-sm text-label-sm text-primary-container uppercase font-bold tracking-widest">TACTICAL RANGE ZONE A</span>
-<span class="font-headline-md text-headline-md text-inverse-on-surface">สนามมาตรฐานในร่ม 18 ม. (ลานเดี่ยว)</span>
-</div>
-</div>
-<!-- Booking Time & Date Metas -->
-<div class="space-y-sm bg-surface-container-low p-sm rounded-xl mb-md">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-xs text-on-surface-variant font-label-md text-label-md">
-<span class="material-symbols-outlined text-[18px]">calendar_today</span>
-<span>วันที่เข้ายิง</span>
-</div>
-<span class="font-body-md text-body-md font-bold text-on-surface" id="reviewDate">กรุณาเลือกวันที่</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-xs text-on-surface-variant font-label-md text-label-md">
-<span class="material-symbols-outlined text-[18px]">schedule</span>
-<span>รอบเวลา</span>
-</div>
-<span class="font-body-md text-body-md font-bold text-primary" id="reviewTime">11:00 - 12:00 น. (1 ชม.)</span>
-</div>
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-xs text-on-surface-variant font-label-md text-label-md">
-<span class="material-symbols-outlined text-[18px]">group</span>
-<span>จำนวนผู้เล่น</span>
-</div>
-<span class="font-body-md text-body-md font-semibold text-on-surface">1 ท่าน (ลู่ยิงหมายเลข 04)</span>
-</div>
-</div>
-<!-- Price Breakdown Calculation -->
-<div class="space-y-xs pb-md">
-<div class="flex items-center justify-between font-body-md text-body-md text-on-surface-variant">
-<span id="reviewHourLabel">ค่าชั่วโมงฝึกซ้อม (1 ชั่วโมง)</span>
-<span class="font-semibold text-on-surface" id="reviewHourPrice">350 ฿</span>
-</div>
-<div class="flex items-center justify-between font-body-md text-body-md text-on-surface-variant">
-<span>ค่าเป้าธนูแข่งขัน 40cm WA Standard</span>
-<span class="font-semibold text-on-surface" id="reviewTargetPrice">20 ฿</span>
-</div>
-<div class="flex items-center justify-between font-body-md text-body-md text-on-surface-variant">
-<span>ชุดอุปกรณ์นิรภัย &amp; โค้ชประกบ 15 นาที</span>
-<span class="font-bold text-primary">ฟรี (ในแพ็กเกจ)</span>
-</div>
-<div class="flex items-center justify-between font-body-md text-body-md text-on-surface-variant">
-<span>ภาษีมูลค่าเพิ่ม VAT 7%</span>
-<span class="text-on-surface-variant font-medium">รวมแล้ว</span>
-</div>
-</div>
-<!-- Segmented Visual Dotted Line -->
-<div class="w-full flex items-center gap-xs mb-md">
-<div class="flex-1 h-[2px] bg-surface-variant border-dashed"></div>
-<span class="material-symbols-outlined text-on-surface-variant text-[16px]">south</span>
-<div class="flex-1 h-[2px] bg-surface-variant border-dashed"></div>
-</div>
-<!-- Total Price Row -->
-<div class="flex items-end justify-between mb-lg">
-<div>
-<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">ยอดรวมสุทธิ</span>
-<p class="font-label-sm text-label-sm text-on-surface-variant">Net Amount Due</p>
-</div>
-<div class="text-right">
-<span class="font-headline-xl text-headline-xl font-bold text-on-surface" id="reviewTotal">370</span>
-<span class="font-body-lg text-body-lg text-on-surface-variant font-bold ml-xs">THB</span>
-</div>
-</div>
-<!-- CTA Primary & Secondary Buttons -->
-<div class="flex flex-col gap-sm">
-<button class="w-full py-base md:py-sm px-md rounded-xl bg-inverse-surface hover:bg-primary text-inverse-on-surface hover:text-on-primary font-headline-md text-headline-md flex items-center justify-center gap-sm transition-all duration-200 shadow-md group" id="confirmBookingBtn" type="button">
-<span>ยืนยันการจองและรับบัตร E-Ticket</span>
-<span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
-</button>
-<a class="w-full py-base px-md rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center gap-xs transition-colors text-center" href="/booking">
-<span class="material-symbols-outlined text-[16px]">arrow_back</span>
-<span>ย้อนกลับไปแก้ไขข้อมูลผู้จอง</span>
-</a>
-</div>
-<!-- Club Guarantee Badge -->
-<div class="mt-md pt-sm flex items-center justify-center gap-sm text-on-surface-variant font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
-<span>MR.HANDSOME Calibrated Precision Standard</span>
-</div>
-</div>
-<!-- Quick Range Rules Info Card -->
-<div class="bg-surface-container-low rounded-xl p-md flex items-start gap-sm">
-<span class="material-symbols-outlined text-[24px] text-primary shrink-0">info</span>
-<div class="space-y-xs">
-<span class="font-label-md text-label-md font-bold text-on-surface">ข้อแนะนำก่อนเข้าสนาม</span>
-<p class="font-label-sm text-label-sm text-on-surface-variant">กรุณาสวมรองเท้าหุ้มส้นและเสื้อผ้าทะมัดทะแมง และควรเดินทางมาถึงสนามก่อนเวลาเริ่มรอบฝึกซ้อมประมาณ 10-15 นาที เพื่อรับฟังคำแนะนำด้านความปลอดภัย</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- Simple Interaction Logic for Payment Toggle & Button Feedback -->
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-  
-</div></main><footer class="w-full bg-inverse-surface text-inverse-on-surface py-lg"><div class="w-full px-margin-mobile md:px-margin-desktop"><div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-md pb-md"><div class="flex flex-col gap-xs"><div class="flex items-center gap-sm"><span class="font-headline-md text-headline-md text-primary-container uppercase tracking-wider">MR.HANDSOME</span><span class="font-label-sm text-label-sm px-base py-xs rounded bg-surface-container text-on-surface-variant uppercase tracking-wider">Tactical Range</span></div><p class="font-body-md text-body-md text-secondary-fixed-dim max-w-sm">ศูนย์ฝึกและสนามยิงธนูสไตล์ Modern Tactical สำหรับนักกีฬาระดับมืออาชีพและผู้ฝึกซ้อมเพื่อความแม่นยำสูงสุด</p></div><div class="flex flex-wrap gap-md font-label-md text-label-md"><a class="text-secondary-fixed-dim hover:text-primary-container transition-colors" href="/#rules">กฎสนามและความปลอดภัย</a><a class="text-secondary-fixed-dim hover:text-primary-container transition-colors" href="/#pricing">แพ็กเกจสมาชิก</a><a class="text-secondary-fixed-dim hover:text-primary-container transition-colors" href="/">ติดต่อเรา</a></div></div><div class="mt-md pt-md flex flex-col sm:flex-row justify-between items-center gap-base font-label-sm text-label-sm text-secondary-fixed-dim"><p>© 2025 MR.HANDSOME Archery Club. Precision &amp; Power. All rights reserved.</p><div class="flex gap-md"><span class="uppercase tracking-widest text-primary-container">Precision Calibrated</span></div></div></div></footer>
+const route = useRoute()
+const router = useRouter()
+
+// ข้อมูลที่ส่งต่อมาจากขั้นตอนที่ 1 และ 2
+const bookingDate = computed(() => String(route.query.date || 'วันนี้'))
+const bookingTime = computed(() => String(route.query.time || '11:00 - 12:00 น.'))
+const duration = computed(() => {
+  const d = parseInt(route.query.duration || '1', 10)
+  return isNaN(d) || d < 1 ? 1 : d
+})
+
+const customerName = computed(() => String(route.query.name || 'คุณลูกค้า'))
+const customerPhone = computed(() => String(route.query.phone || '08X-XXX-XXXX'))
+const gear = computed(() => String(route.query.gear || 'rental'))
+const bowType = computed(() => String(route.query.bow || 'Olympic Recurve'))
+const hand = computed(() => String(route.query.hand || 'right'))
+const note = computed(() => String(route.query.note || route.query.specialRequest || route.query.request || ''))
+
+const isOwnGear = computed(() => gear.value === 'own' || bowType.value.includes('ส่วนตัว'))
+
+const equipmentBadge = computed(() => {
+  if (isOwnGear.value) return 'อุปกรณ์ส่วนตัว'
+  return bowType.value === 'Bare Bow' ? 'Bare Bow Range Set' : 'Olympic Recurve Set'
+})
+
+const equipmentTitle = computed(() => {
+  if (isOwnGear.value) return 'นำอุปกรณ์ธนูส่วนตัวมาเอง (เช่าเฉพาะลานฝึกซ้อม)'
+  return `${bowType.value} พร้อมอุปกรณ์มาตรฐานสนาม`
+})
+
+const equipmentDescription = computed(() => {
+  if (isOwnGear.value) {
+    return 'บริการนำอุปกรณ์ส่วนตัวเข้าสนาม พร้อมบริการโค้ชช่วยตรวจวัดแรงดึง (Poundage) และปรับแต่งอุปกรณ์ฟรี'
+  }
+  return 'รวมลูกธนูคาร์บอน 12 ลูก, Finger Tab รองนิ้ว, Arm Guard ป้องกันแขน และโค้ชแนะนำเบื้องต้น 15 นาที'
+})
+
+const handLabel = computed(() => {
+  return hand.value === 'left' ? 'ถนัดซ้าย (Left-hand)' : 'ถนัดขวา (Right-hand)'
+})
+
+const totalPrice = computed(() => {
+  if (route.query.total) {
+    return Number(route.query.total)
+  }
+  if (isOwnGear.value) {
+    return 100 * duration.value
+  }
+  const rate = bowType.value === 'Bare Bow' ? 300 : 350
+  return (rate + 20) * duration.value
+})
+
+const trainingFee = computed(() => {
+  return totalPrice.value - (20 * duration.value)
+})
+
+const isSubmitting = ref(false)
+
+// ยืนยันการจอง บันทึกลง localStorage และส่งต่อไปยังหน้าสลิป E-Ticket
+function handleConfirmBooking() {
+  isSubmitting.value = true
+
+  const bookingRecord = {
+    id: 'BK-' + Date.now().toString().slice(-6),
+    name: customerName.value,
+    phone: customerPhone.value,
+    date: bookingDate.value,
+    time: bookingTime.value,
+    duration: duration.value,
+    gear: gear.value,
+    bow: bowType.value,
+    hand: hand.value,
+    note: note.value, // ส่งคำขอพิเศษไปยังคิวจองและ POS
+    total: totalPrice.value,
+    paymentMethod: 'counter',
+    status: 'pending_payment',
+    createdAt: new Date().toISOString()
+  }
+
+  try {
+    const list = JSON.parse(localStorage.getItem('mrhs_bookings') || '[]')
+    list.push(bookingRecord)
+    localStorage.setItem('mrhs_bookings', JSON.stringify(list))
+    sessionStorage.setItem('_mrhs_new_ticket', '1')
+
+    // จำเบอร์โทรล่าสุดไว้ เพื่อให้หน้าตรวจสอบแต้ม/บัตรจองเปิดดูได้ทันที
+    const cleanPhone = customerPhone.value.replace(/\D/g, '')
+    if (cleanPhone) {
+      localStorage.setItem('mrhs_last_phone', cleanPhone)
+    }
+  } catch (err) {
+    console.error('Storage error:', err)
+  }
+
+  setTimeout(() => {
+    router.push({
+      path: '/receipt',
+      query: {
+        id: bookingRecord.id,
+        date: bookingDate.value,
+        time: bookingTime.value,
+        duration: duration.value,
+        name: customerName.value,
+        phone: customerPhone.value,
+        gear: gear.value,
+        bow: bowType.value,
+        hand: hand.value,
+        note: note.value,
+        payment: 'counter',
+        total: totalPrice.value
+      }
+    })
+  }, 400)
+}
+</script>
+
+<template>
+  <div class="bg-[#121212] font-sans text-[#f5f5f0] antialiased min-h-screen flex flex-col" lang="th">
+    
+    <!-- Main Content Canvas (ลบ Navbar ที่ซ้อนออกเรียบร้อย) -->
+    <main class="w-full flex-grow">
+      
+      <!-- Stepper Header -->
+      <section class="w-full bg-[#181818] border-b border-[#2c2c2c] py-3.5">
+        <div class="max-w-5xl mx-auto px-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 items-center">
+            <!-- Step 1 -->
+            <div class="flex items-center gap-2.5">
+              <router-link to="/schedule" class="w-8 h-8 rounded-full bg-[#262626] text-[#ffd700] flex items-center justify-center shrink-0 border border-[#383838]">
+                <span class="material-symbols-outlined text-[16px]">check</span>
+              </router-link>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[10px] text-stone-400 uppercase tracking-wider">ขั้นตอน 1</span>
+                <span class="text-xs text-stone-200 truncate">เลือกรอบเวลา</span>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex items-center gap-2.5">
+              <router-link to="/booking" class="w-8 h-8 rounded-full bg-[#262626] text-[#ffd700] flex items-center justify-center shrink-0 border border-[#383838]">
+                <span class="material-symbols-outlined text-[16px]">check</span>
+              </router-link>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[10px] text-stone-400 uppercase tracking-wider">ขั้นตอน 2</span>
+                <span class="text-xs text-stone-200 truncate">ข้อมูลผู้จอง</span>
+              </div>
+            </div>
+
+            <!-- Step 3 (Active) -->
+            <div class="flex items-center gap-2.5 p-1 rounded-xl bg-[#ffd700]/10 border border-[#ffd700]/30">
+              <div class="w-8 h-8 rounded-full bg-[#ffd700] text-black flex items-center justify-center shrink-0 font-bold shadow-sm">
+                <span class="material-symbols-outlined text-[16px]">verified</span>
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[10px] text-[#ffd700] font-bold uppercase tracking-wider">กำลังทำรายการ</span>
+                <span class="text-xs text-[#f5f5f0] font-bold truncate">3. ตรวจสอบ & ยืนยัน</span>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="flex items-center gap-2.5 opacity-40">
+              <div class="w-8 h-8 rounded-full bg-[#262626] text-stone-400 flex items-center justify-center text-xs shrink-0 border border-[#383838] font-mono">
+                04
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[10px] text-stone-400 uppercase tracking-wider">ขั้นตอนสุดท้าย</span>
+                <span class="text-xs text-stone-400 truncate">รับ E-Ticket</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Review Workspace -->
+      <section class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#262626] text-[#ffd700] text-xs font-semibold mb-2 border border-[#383838]">
+              <span class="w-2 h-2 rounded-full bg-[#ffd700] animate-pulse"></span>
+              TACTICAL RANGE RESERVATION
+            </div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[#f5f5f0]">ตรวจสอบและยืนยันการจอง</h1>
+            <p class="text-sm text-stone-400 mt-1">กรุณาตรวจสอบข้อมูลการจอง โดยท่านสามารถชำระเงินจริงได้ที่เคาน์เตอร์สนาม</p>
+          </div>
+
+          <div class="hidden md:flex items-center gap-2 text-stone-400 text-xs bg-[#181818] border border-[#2c2c2c] px-3.5 py-2 rounded-xl">
+            <span class="material-symbols-outlined text-[18px] text-[#ffd700]">encrypted</span>
+            <span>ระบบบันทึกความปลอดภัย 256-bit SSL</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          <!-- ฝั่งซ้าย: ข้อมูลผู้ใช้บริการและอุปกรณ์ (7 Cols) -->
+          <div class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- Card 1: ผู้ใช้บริการ & อุปกรณ์ -->
+            <div class="bg-[#181818] border border-[#2c2c2c] rounded-2xl p-5 md:p-6 shadow-sm">
+              <div class="flex items-center justify-between pb-4 mb-5 border-b border-[#2c2c2c]">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-[#262626] text-[#ffd700] flex items-center justify-center border border-[#383838]">
+                    <span class="material-symbols-outlined text-[20px]">badge</span>
+                  </div>
+                  <div>
+                    <h2 class="font-bold text-[#f5f5f0]">ข้อมูลผู้ใช้บริการ & อุปกรณ์</h2>
+                    <p class="text-xs text-stone-400">ตรวจสอบความถูกต้องก่อนยืนยันคิว</p>
+                  </div>
+                </div>
+                <router-link to="/booking" class="inline-flex items-center gap-1 text-xs text-[#ffd700] hover:underline font-bold">
+                  <span class="material-symbols-outlined text-[16px]">edit_note</span>
+                  แก้ไขข้อมูล
+                </router-link>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="p-3.5 rounded-xl bg-[#222222] border border-[#2e2e2e]">
+                  <span class="text-xs text-stone-400 block">ชื่อ-นามสกุล ผู้จอง</span>
+                  <span class="font-semibold text-white text-base mt-1 block">{{ customerName }}</span>
+                </div>
+                <div class="p-3.5 rounded-xl bg-[#222222] border border-[#2e2e2e]">
+                  <span class="text-xs text-stone-400 block">เบอร์โทรศัพท์ติดต่อ</span>
+                  <span class="font-semibold text-[#ffd700] text-base mt-1 block font-mono">{{ customerPhone }}</span>
+                </div>
+
+                <!-- ชุดอุปกรณ์ที่จัดเตรียม & มือที่ถนัด -->
+                <div class="p-4 rounded-xl bg-[#222222] border border-[#2e2e2e] sm:col-span-2">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs text-stone-400">ชุดอุปกรณ์ที่จัดเตรียม</span>
+                    <span class="text-xs text-[#ffd700] bg-[#ffd700]/10 px-2 py-0.5 rounded font-bold border border-[#ffd700]/20">
+                      {{ equipmentBadge }}
+                    </span>
+                  </div>
+                  <p class="text-sm text-white font-semibold">{{ equipmentTitle }}</p>
+                  <p class="text-xs text-stone-400 mt-1 leading-relaxed">{{ equipmentDescription }}</p>
+                  
+                  <div class="mt-3 pt-2.5 border-t border-[#333] flex items-center justify-between text-xs">
+                    <span class="text-stone-400">มือข้างที่ถนัดในการน้าวสาย:</span>
+                    <span class="text-[#ffd700] font-bold">{{ handLabel }}</span>
+                  </div>
+                </div>
+
+                <!-- คำขอพิเศษถึงโค้ช / ข้อความถึงร้าน (ถ้ามี) -->
+                <div v-if="note" class="p-3.5 rounded-xl bg-[#222222] border border-[#2e2e2e] sm:col-span-2">
+                  <span class="text-xs text-stone-400 block mb-1">คำขอพิเศษถึงโค้ช / ข้อความถึงร้าน:</span>
+                  <p class="text-xs text-[#ffd700] font-medium leading-relaxed">
+                    "{{ note }}"
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: ชำระเงินหน้าเคาน์เตอร์ -->
+            <div class="bg-[#181818] border border-[#2c2c2c] rounded-2xl p-5 md:p-6 shadow-sm">
+              <div class="flex items-center gap-3 pb-4 mb-5 border-b border-[#2c2c2c]">
+                <div class="w-9 h-9 rounded-xl bg-[#262626] text-[#ffd700] flex items-center justify-center border border-[#383838]">
+                  <span class="material-symbols-outlined text-[20px]">storefront</span>
+                </div>
+                <div>
+                  <h2 class="font-bold text-white">การชำระเงิน (Pay at Counter)</h2>
+                  <p class="text-xs text-stone-400">ไม่ต้องโอนเงินล่วงหน้า ชำระจริงเมื่อมาถึงสนาม</p>
+                </div>
+              </div>
+
+              <div class="p-4 rounded-xl bg-[#222222] border border-[#383838] flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-[#ffd700]/15 text-[#ffd700] flex items-center justify-center shrink-0 border border-[#ffd700]/30">
+                  <span class="material-symbols-outlined text-3xl">point_of_sale</span>
+                </div>
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-white">ชำระเงิน ณ จุดประชาสัมพันธ์สนาม</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">สะดวก ปลอดภัย</span>
+                  </div>
+                  <p class="text-xs text-stone-400 leading-relaxed">
+                    กรุณาเดินทางมาถึงก่อนรอบฝึกซ้อมประมาณ <strong class="text-stone-200">10-15 นาที</strong> เพื่อแสดงรหัส E-Ticket และชำระเงินตามยอดรวม
+                  </p>
+                  <div class="pt-2 flex flex-wrap gap-2 text-[11px] text-[#ffd700]">
+                    <span class="bg-[#181818] px-2.5 py-0.5 rounded border border-[#383838]">• เงินสด</span>
+                    <span class="bg-[#181818] px-2.5 py-0.5 rounded border border-[#383838]">• สแกน QR หน้าร้าน</span>
+                    <span class="bg-[#181818] px-2.5 py-0.5 rounded border border-[#383838]">• บัตรเครดิต / เดบิต</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 p-3 rounded-xl bg-[#141414] border border-[#2c2c2c] flex items-center gap-2.5 text-xs text-stone-400">
+                <span class="material-symbols-outlined text-[18px] text-[#ffd700] shrink-0">info</span>
+                <span>หากติดธุระไม่สามารถมาตามนัด สามารถกดยกเลิกหรือแจ้งเลื่อนวันล่วงหน้าได้ฟรี</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ฝั่งขวา: สรุปบิลและปุ่มกดยืนยัน (5 Cols) -->
+          <div class="lg:col-span-5 flex flex-col gap-6 lg:sticky lg:top-20">
+            <div class="bg-[#181818] border border-[#2c2c2c] rounded-2xl p-5 md:p-6 shadow-lg relative overflow-hidden">
+              <div class="h-1.5 w-full bg-[#ffd700] absolute top-0 left-0 right-0"></div>
+
+              <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#2c2c2c]">
+                <div>
+                  <span class="text-[10px] font-mono text-stone-400 uppercase tracking-wider block">BOOKING SUMMARY</span>
+                  <h3 class="font-bold text-lg text-white">สรุปรายละเอียด</h3>
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#262626] text-xs font-semibold text-[#ffd700] border border-[#383838]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#ffd700] animate-pulse"></span>
+                  รอยืนยัน
+                </span>
+              </div>
+
+              <!-- รายละเอียดรอบ -->
+              <div class="space-y-2.5 bg-[#222222] border border-[#2e2e2e] p-3.5 rounded-xl mb-4 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-stone-400 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px]">calendar_today</span>
+                    วันที่เข้ายิง
+                  </span>
+                  <span class="font-bold text-white">{{ bookingDate }}</span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-stone-400 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px]">schedule</span>
+                    รอบเวลา
+                  </span>
+                  <span class="font-bold text-[#ffd700] font-mono">{{ bookingTime }} ({{ duration }} ชม.)</span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-stone-400 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px]">sports_score</span>
+                    สนาม
+                  </span>
+                  <span class="font-bold text-white">18 ม. มาตรฐาน (ลานเดี่ยว)</span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-stone-400 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px]">military_tech</span>
+                    แพ็กเกจ
+                  </span>
+                  <span class="font-bold text-[#ffd700]">{{ bowType }}</span>
+                </div>
+              </div>
+
+              <!-- รายละเอียดราคา -->
+              <div class="space-y-2 pb-3 text-xs border-b border-[#2c2c2c]">
+                <template v-if="isOwnGear">
+                  <div class="flex justify-between text-stone-400">
+                    <span>ค่านำอุปกรณ์ส่วนตัวเข้าสนาม ({{ duration }} ชม.)</span>
+                    <span class="font-semibold text-white font-mono">{{ 100 * duration }} ฿</span>
+                  </div>
+                  <div class="flex justify-between text-stone-400">
+                    <span>ค่าเป้าธนูและลานฝึกซ้อม</span>
+                    <span class="text-emerald-400 font-semibold">ฟรีในสิทธิ์</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="flex justify-between text-stone-400">
+                    <span>ค่าชั่วโมงฝึกซ้อม ({{ duration }} ชม.)</span>
+                    <span class="font-semibold text-white font-mono">{{ trainingFee }} ฿</span>
+                  </div>
+                  <div class="flex justify-between text-stone-400">
+                    <span>ค่าเป้าธนูมาตรฐาน (40 ซม.)</span>
+                    <span class="font-semibold text-white font-mono">{{ 20 * duration }} ฿</span>
+                  </div>
+                  <div class="flex justify-between text-stone-400">
+                    <span>ชุดอุปกรณ์ & โค้ชประกบ 15 นาที</span>
+                    <span class="font-bold text-[#ffd700]">รวมในแพ็กเกจ</span>
+                  </div>
+                </template>
+              </div>
+
+              <!-- ยอดรวมสุทธิ -->
+              <div class="flex items-end justify-between py-4">
+                <div>
+                  <span class="text-xs text-stone-400 uppercase tracking-wider block font-semibold">ยอดชำระที่เคาน์เตอร์</span>
+                  <span class="text-[10px] text-stone-500 font-mono">Due at Counter</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-3xl font-black text-[#ffd700] font-mono">{{ totalPrice }}</span>
+                  <span class="text-xs text-stone-400 font-bold ml-1.5">THB</span>
+                </div>
+              </div>
+
+              <!-- ปุ่มยืนยัน -->
+              <div class="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  :disabled="isSubmitting"
+                  @click="handleConfirmBooking"
+                  class="w-full py-3.5 px-4 rounded-xl bg-[#ffd700] hover:bg-yellow-400 text-black font-extrabold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#ffd700]/15 active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  <span v-if="isSubmitting" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                  <span>{{ isSubmitting ? 'กำลังออกบัตร...' : 'ยืนยันการจองและรับบัตร E-Ticket' }}</span>
+                  <span v-if="!isSubmitting" class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </button>
+
+                <router-link
+                  to="/booking"
+                  class="w-full py-2.5 px-4 rounded-xl bg-[#262626] hover:bg-[#333] text-stone-300 hover:text-white text-xs flex items-center justify-center gap-1 transition-colors text-center border border-[#383838]"
+                >
+                  <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                  <span>ย้อนกลับไปแก้ไขข้อมูลผู้จอง</span>
+                </router-link>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full bg-[#101010] border-t border-[#262626] py-6 text-center text-xs text-stone-500 mt-auto">
+      <p>© 2026 MR.HANDSOME Archery Club. Precision & Power. All rights reserved.</p>
+    </footer>
+
   </div>
 </template>
-
-<!-- <style> เดิมจาก <head> (ไม่ scoped ตามที่สั่ง) -->
-<style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style>
-
-<!--
-  ==== <script> เดิมทั้งหมดของหน้านี้ (เก็บไว้ก่อน ยังไม่ได้แปลงเป็น Vue) ====
-  รวมทั้ง tailwind CDN, tailwind.config, js/*.js และ inline script
-
-  [1] (จาก <head>)
-<script src="https://cdn.tailwindcss.com"></script>
-
-  [2] (จาก <head>)
-<script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#1a1a1a","error-container":"#5c2b2b","primary-fixed-dim":"#c9a227","on-primary-fixed-variant":"#fff3b8","outline":"#5a5a5a","on-tertiary-container":"#fff3b8","on-error":"#2b0000","secondary-fixed":"#262626","on-surface":"#f5f5f0","on-primary-fixed":"#1a1a1a","on-secondary-container":"#e8e8e2","surface-variant":"#2c2c2c","error":"#ff8a80","surface":"#1a1a1a","secondary-fixed-dim":"#333333","on-surface-variant":"#bfbfbb","tertiary-fixed":"#2e2e2e","surface-container-highest":"#343434","on-background":"#f5f5f0","primary":"#ffd700","on-secondary":"#f5f5f0","surface-bright":"#2a2a2a","surface-container-lowest":"#262626","on-tertiary-fixed":"#fff3b8","surface-container-low":"#262626","secondary":"#181818","on-secondary-fixed-variant":"#d0d0ca","outline-variant":"#383838","inverse-on-surface":"#f5f5f0","on-primary-container":"#fff3b8","tertiary":"#ffe066","primary-container":"#ffd700","surface-container":"#262626","on-error-container":"#ffdad6","background":"#121212","surface-dim":"#121212","tertiary-container":"#3a3a3a","primary-fixed":"#ffd700","on-tertiary":"#1a1a1a","surface-tint":"#ffd700","on-secondary-fixed":"#f5f5f0","surface-container-high":"#2e2e2e","inverse-primary":"#ffd700","tertiary-fixed-dim":"#3a3a3a","on-tertiary-fixed-variant":"#e8e0c0","inverse-surface":"#181818","secondary-container":"#262626"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"gutter":"24px","xs":"4px","sm":"12px","lg":"48px","margin-desktop":"48px","xl":"80px","base":"8px","md":"24px","margin-mobile":"16px"},"fontFamily":{"body-md":["Be Vietnam Pro"],"label-sm":["Be Vietnam Pro"],"headline-lg":["Be Vietnam Pro"],"headline-xl":["Be Vietnam Pro"],"body-lg":["Be Vietnam Pro"],"label-md":["Be Vietnam Pro"],"headline-lg-mobile":["Be Vietnam Pro"],"headline-md":["Be Vietnam Pro"]},"fontSize":{"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","fontWeight":"700"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-xl":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-md":["14px",{"lineHeight":"20px","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"700"}]}}}}</script>
-
-  [3] (จาก <body>)
-<script>
-    (function() {
-      const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
-      paymentRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-          document.querySelectorAll('#paymentSelector label').forEach(lbl => {
-            lbl.classList.remove('ring-2', 'ring-primary-container');
-          });
-          if (this.checked) {
-            this.closest('label').classList.add('ring-2', 'ring-primary-container');
-          }
-        });
-      });
-
-      const confirmBtn = document.getElementById('confirmBookingBtn');
-      if (confirmBtn) {
-        confirmBtn.addEventListener('click', function() {
-          var f = window.__bookingFlow || {};
-          var dtf = f.date || '';
-          var stf = (f.time || '11:00');
-          var duf = f.duration || 1;
-          function tMin(x) { var p = String(x).split(':'); return (+p[0]) * 60 + (+p[1]); }
-          if (f.date && f.time) {
-            var bl = [];
-            try { bl = JSON.parse(localStorage.getItem('mrhs_bookings') || '[]'); } catch (err) {}
-            if (Array.isArray(bl)) {
-              for (var k2 = 0; k2 < bl.length; k2++) {
-                var bk2 = bl[k2];
-                if (bk2.status === 'cancelled' || bk2.date !== dtf) continue;
-                var bs2 = bk2.time ? tMin(String(bk2.time).replace(/ น\./g, '').split(' - ')[0]) : -1;
-                if (bs2 < 0) continue;
-                var be2 = bs2 + (bk2.duration || 1) * 60;
-                var se2 = tMin(stf) + duf * 60;
-                if (tMin(stf) < be2 && bs2 < se2) {
-                  alert('รอบเวลา' + stf + ' น. ในวันที่นี้ถูกจองไว้แล้ว (' + bk2.id + ') กรุณาเลือกข้อมูลจากหน้าแรกหรือจองรอบอื่น');
-                  return;
-                }
-              }
-            }
-          }
-          const originalText = confirmBtn.innerHTML;
-          confirmBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span><span>กำลังออกบัตร E-Ticket...</span>';
-          confirmBtn.disabled = true;
-          setTimeout(() => {
-            var f = window.__bookingFlow || {};
-            var q = new URLSearchParams();
-            if (f.date) q.set('date', f.date);
-            if (f.time) q.set('time', f.time);
-            q.set('duration', f.duration || 1);
-            if (f.name) q.set('name', f.name);
-            if (f.phone) q.set('phone', f.phone);
-            var pm = (document.querySelector('input[name="payment_method"]:checked') || {}).value || 'promptpay';
-            q.set('payment', pm);
-            sessionStorage.setItem('__mrhs_new_ticket', '1');
-            window.location.href = '/receipt?' + q.toString();
-          }, 900);
-        });
-      }
-    })();
-  </script>
-
-  [4] (จาก <body>)
-<script>
-    (function () {
-      var params = new URLSearchParams(window.location.search);
-      var dur = parseInt(params.get('duration') || '1', 10);
-      if (isNaN(dur) || dur < 1 || dur > 5) dur = 1;
-      var start = (params.get('time') || '11:00').trim().replace(/ น\./g, '').split(' - ')[0];
-      window.__bookingFlow = { date: params.get('date') || '', time: start, duration: dur };
-      var fName = params.get('name') || '';
-      var fPhone = params.get('phone') || '';
-      window.__bookingFlow.name = fName;
-      window.__bookingFlow.phone = fPhone;
-      if (fName) {
-        var reviewNameEl = document.getElementById('reviewName');
-        if (reviewNameEl) reviewNameEl.textContent = fName;
-      }
-      if (fPhone) {
-        var reviewPhoneEl = document.getElementById('reviewPhone');
-        if (reviewPhoneEl) reviewPhoneEl.textContent = fPhone;
-      }
-
-      var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
-      var p = start.split(':');
-      var totalMin = (+p[0]) * 60 + (+p[1]) + dur * 60;
-      var endH = pad2(Math.floor((totalMin / 60) % 24)) + ':' + pad2(totalMin % 60);
-
-      var timeEl = document.getElementById('reviewTime');
-      var dateEl = document.getElementById('reviewDate');
-      var hourLabelEl = document.getElementById('reviewHourLabel');
-      var hourPriceEl = document.getElementById('reviewHourPrice');
-      var targetPriceEl = document.getElementById('reviewTargetPrice');
-      var totalEl = document.getElementById('reviewTotal');
-
-      if (dateEl) dateEl.textContent = params.get('date') || '';
-      if (timeEl) timeEl.textContent = start + ' - ' + endH + ' น. (' + dur + ' ชม.)';
-      if (hourLabelEl) hourLabelEl.textContent = 'ค่าชั่วโมงฝึกซ้อม (' + dur + ' ชั่วโมง)';
-      if (hourPriceEl) hourPriceEl.textContent = (350 * dur) + ' ฿';
-      if (targetPriceEl) targetPriceEl.textContent = (20 * dur) + ' ฿';
-      if (totalEl) totalEl.textContent = String(370 * dur);
-    })();
-  </script>
-
-  [5] (จาก <body>)
-<script src="js/app.js"></script>
-
-  [6] (จาก <body>)
-<script src="js/calculator.js"></script>
-
-  [7] (จาก <body>)
-<script src="js/points.js"></script>
-
-  [8] (จาก <body>)
-<script>(function(){if(!window.location.search)return;var href='/booking'+window.location.search;document.querySelectorAll('a[href="/booking"]').forEach(function(a){a.setAttribute('href',href);});})();</script>
-
-==== จบ <script> เดิม ====
--->

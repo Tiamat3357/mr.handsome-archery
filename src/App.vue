@@ -1,5 +1,14 @@
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import CustomerNavbar from './components/CustomerNavbar.vue'
+
+const route = useRoute()
+// หน้าหลังบ้าน (pos / dashboard / login) จะไม่แสดง navbar ลูกค้า
+const showNav = computed(() => !route.meta.backoffice)
+</script>
+
 <template>
-  <div class="min-h-screen bg-[#121315] text-[#ECE8E1]">
-    <router-view />
-  </div>
+  <CustomerNavbar v-if="showNav" />
+  <router-view />
 </template>
