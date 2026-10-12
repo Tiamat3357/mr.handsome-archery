@@ -14,6 +14,23 @@ const phoneQuery = ref('')
 const memberInfo = ref(null)
 const isSearchingMember = ref(false)
 
+// ตัวแปรเก็บยอดใช้จ่ายสะสม
+const totalSpent = ref(0)
+
+// ฟังก์ชันเรียก SQL Function ผ่าน Supabase RPC
+const fetchCustomerTotalSpent = async (customerId) => {
+  if (!customerId) return
+  try {
+    const { data, error } = await supabase.rpc('get_customer_total_spent', {
+      p_customer_id: customerId
+    })
+    if (error) throw error
+    totalSpent.value = data || 0
+  } catch (err) {
+    console.error('Error fetching total spent:', err.message)
+  }
+}
+
 // ค้นหาแต้มสมาชิกจาก Supabase ด้วยเบอร์โทร
 async function lookupMemberPoints(phone) {
   const cleanPhone = String(phone || '').replace(/\D/g, '')
@@ -79,6 +96,10 @@ const nextRewardText = computed(() => {
 </script>
 
 <template>
+  <div class="text-sm text-gray-400">
+  ยอดใช้จ่ายสะสมทั้งหมด: <span class="font-bold text-yellow-400">{{ totalSpent }}</span> บาท
+</div>
+
   <div class="min-h-screen flex flex-col bg-[#121212] text-stone-100 font-sans antialiased pt-20" lang="th">
     <main class="flex-1 w-full mx-auto px-4 sm:px-6 py-8" style="max-width: 900px;">
       
