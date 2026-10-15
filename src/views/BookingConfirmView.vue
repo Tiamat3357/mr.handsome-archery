@@ -73,15 +73,13 @@ async function handleConfirmBooking() {
   if (isSubmitting.value) return
   isSubmitting.value = true
 
-  const bookingRecord = {
+ const bookingRecord = {
     id: 'BK-' + Date.now().toString().slice(-6),
     customer_name: customerName.value,
     customer_phone: customerPhone.value,
     booking_date: bookingDate.value,
     round_time: bookingTime.value,
-    // duration: duration.value,
     package_name: bowType.value,
-    hand: hand.value,
     note: note.value || '',
     total_amount: totalPrice.value,
     status: 'pending'
