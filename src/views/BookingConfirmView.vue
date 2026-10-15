@@ -8,6 +8,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { supabase } from '../lib/supabase'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,43 +68,65 @@ const trainingFee = computed(() => {
 
 const isSubmitting = ref(false)
 
-// ยืนยันการจอง บันทึกลง localStorage และส่งต่อไปยังหน้าสลิป E-Ticket
-function handleConfirmBooking() {
+// ยืนยันการจอง บันทึกลง Supabase และ localStorage
+async function handleConfirmBooking() {
+  if (isSubmitting.value) return
   isSubmitting.value = true
 
   const bookingRecord = {
     id: 'BK-' + Date.now().toString().slice(-6),
-    name: customerName.value,
-    phone: customerPhone.value,
-    date: bookingDate.value,
-    time: bookingTime.value,
+    customer_name: customerName.value,
+    customer_phone: customerPhone.value,
+    booking_date: bookingDate.value,
+    round_time: bookingTime.value,
     duration: duration.value,
-    gear: gear.value,
-    bow: bowType.value,
+    package_name: bowType.value,
     hand: hand.value,
-    note: note.value, // ส่งคำขอพิเศษไปยังคิวจองและ POS
-    total: totalPrice.value,
-    paymentMethod: 'counter',
-    status: 'pending_payment',
-    createdAt: new Date().toISOString()
+    note: note.value || '',
+    total_amount: totalPrice.value,
+    status: 'pending'
   }
 
   try {
-    const list = JSON.parse(localStorage.getItem('mrhs_bookings') || '[]')
-    list.push(bookingRecord)
-    localStorage.setItem('mrhs_bookings', JSON.stringify(list))
+    // 1. บันทึกเข้า Supabase เพื่อให้ข้อมูลวิ่งข้ามเครื่องไปปรากฏที่หน้า POS ทันที
+    const { error: dbError } = await supabase
+      .from('bookings')
+      .insert([bookingRecord])
+
+    if (dbError) {
+      console.error('Supabase insert error:', dbError.message)
+    }
+
+    // 2. สำรองเก็บบันทึกลง localStorage ของเครื่องไว้ด้วย
+    const localList = JSON.parse(localStorage.getItem('mrhs_bookings') || '[]')
+    localList.push({
+      id: bookingRecord.id,
+      name: customerName.value,
+      phone: customerPhone.value,
+      date: bookingDate.value,
+      time: bookingTime.value,
+      duration: duration.value,
+      gear: gear.value,
+      bow: bowType.value,
+      hand: hand.value,
+      note: note.value,
+      total: totalPrice.value,
+      status: 'pending_payment',
+      createdAt: new Date().toISOString()
+    })
+    localStorage.setItem('mrhs_bookings', JSON.stringify(localList))
     sessionStorage.setItem('_mrhs_new_ticket', '1')
 
-    // จำเบอร์โทรล่าสุดไว้ เพื่อให้หน้าตรวจสอบแต้ม/บัตรจองเปิดดูได้ทันที
     const cleanPhone = customerPhone.value.replace(/\D/g, '')
     if (cleanPhone) {
       localStorage.setItem('mrhs_last_phone', cleanPhone)
     }
   } catch (err) {
-    console.error('Storage error:', err)
+    console.error('Booking submission error:', err)
   }
 
   setTimeout(() => {
+    isSubmitting.value = false
     router.push({
       path: '/receipt',
       query: {
