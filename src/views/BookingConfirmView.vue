@@ -79,7 +79,7 @@ async function handleConfirmBooking() {
     customer_phone: customerPhone.value,
     booking_date: bookingDate.value,
     round_time: bookingTime.value,
-    duration: duration.value,
+    // duration: duration.value,
     package_name: bowType.value,
     hand: hand.value,
     note: note.value || '',
